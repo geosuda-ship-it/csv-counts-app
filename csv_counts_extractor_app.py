@@ -136,19 +136,19 @@ def extract_cps_blocks(rows):
 
     df = pd.DataFrame(all_data, columns=columns)
 
-def clean_numeric(x):
-    if isinstance(x, str):
-        parts = x.split()
-        if len(parts) >= 2:
-            try:
-                return float(parts[-1])  # 最後の値を使う
-            except:
-                return None
-    return x
+    def clean_numeric(x):
+        if isinstance(x, str):
+            parts = x.split()
+            if len(parts) >= 2:
+                try:
+                    return float(parts[-1])
+                except Exception:
+                    return None
+        return x
 
-for i in range(3, len(columns)):
-    df.iloc[:, i] = df.iloc[:, i].apply(clean_numeric)
-    df.iloc[:, i] = pd.to_numeric(df.iloc[:, i], errors="coerce")
+    for i in range(3, len(columns)):
+        df.iloc[:, i] = df.iloc[:, i].apply(clean_numeric)
+        df.iloc[:, i] = pd.to_numeric(df.iloc[:, i], errors="coerce")
 
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
