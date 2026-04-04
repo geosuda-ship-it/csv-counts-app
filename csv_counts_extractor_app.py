@@ -7,7 +7,7 @@ import streamlit as st
 st.set_page_config(page_title="XRF quantification app", page_icon="🧪", layout="wide")
 
 st.title("XRF quantification app")
-st.write("NEX DEから出力したCSVをアップロードすると，強度抽出 → ドリフト補正 → 定量値算出を行い，Excelで出力します。")
+st.write("NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，および定量値の算出を自動で行い，結果をExcelファイルとして出力します。なお，ドリフト補正のため，QC-2のデータを必ず同じCSVファイルに含めてください。")
 
 reference_qc2 = {
     "Mid-Z_K-Kα": 4.2841,
