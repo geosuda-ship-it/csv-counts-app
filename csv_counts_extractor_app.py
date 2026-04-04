@@ -7,7 +7,7 @@ import streamlit as st
 st.set_page_config(page_title="XRF quantification app", page_icon="🧪", layout="wide")
 
 st.title("XRF quantification app")
-st.write("cps/μA 形式のCSVをアップロードすると，強度抽出 → ドリフト補正 → 定量値算出を行い，Excelで出力します。")
+st.write("NEX DEから出力したCSVをアップロードすると，強度抽出 → ドリフト補正 → 定量値算出を行い，Excelで出力します。")
 
 reference_qc2 = {
     "Mid-Z_K-Kα": 4.2841,
