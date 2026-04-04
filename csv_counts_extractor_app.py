@@ -4,11 +4,21 @@ from io import StringIO, BytesIO
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="XRF quantification app", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="NEX DE 強度→定量値変換アプリ", page_icon="🧪", layout="wide")
 
-st.title("NEX DE 強度→定量値変換アプリ 長崎大ver1")
-st.write("NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，定量値の算出を自動で行い，ボタン操作によりExcelファイルとしてダウンロードできます。ドリフト補正に用いるため，QC-2のデータは出力結果にも必ず含めてください。")
+st.title("NEX DE 強度→定量値変換アプリ")
+st.write(
+    "NEX DEから出力したCSVファイルをアップロードすると，"
+    "強度データの抽出，ドリフト補正，定量値の算出を自動で行い，"
+    "ボタンを押すことで結果をExcelファイルとしてダウンロードできます。"
+)
+st.write(
+    "ドリフト補正に用いるため，QC-2のデータは出力結果にも必ず含めてください。"
+)
 
+# =========================
+# 1. QC-2 基準強度（cps/μA）
+# =========================
 reference_qc2 = {
     "Mid-Z_K-Kα": 4.2841,
     "Mid-Z_Ca-Kβ1": 0.1575,
@@ -24,6 +34,9 @@ reference_qc2 = {
 }
 target_cols = list(reference_qc2.keys())
 
+# =========================
+# 2. 検量線定数
+# =========================
 B = {
     "K": 9278.19,
     "Ca": 30241.3,
@@ -177,7 +190,7 @@ def extract_cps_blocks(rows):
     return df
 
 
-def apply_drift_and_quantification(df):
+def calculate_drift_factors(df):
     sample_norm = (
         df["Sample"]
         .astype(str)
@@ -207,6 +220,12 @@ def apply_drift_and_quantification(df):
         else:
             drift_factors[col] = ref_val / measured_val
 
+    return drift_factors
+
+
+def apply_drift_and_quantification(df):
+    drift_factors = calculate_drift_factors(df)
+
     df_corrected = df.copy()
     for col in target_cols:
         factor = drift_factors[col]
@@ -217,15 +236,18 @@ def apply_drift_and_quantification(df):
     if ag_col not in df_corrected.columns:
         raise ValueError(f"Ag 内標準列が見つかりません: {ag_col}")
 
+    # K〜Zn
     df_corrected["K"] = B["K"] * df_corrected["Mid-Z_K-Kα"] + C["K"]
     df_corrected["Ca"] = B["Ca"] * df_corrected["Mid-Z_Ca-Kβ1"] + C["Ca"]
     df_corrected["Mn"] = B["Mn"] * df_corrected["Mid-Z_Mn-Kα"] + C["Mn"]
     df_corrected["Fe"] = B["Fe"] * df_corrected["Mid-Z_Fe-Kβ1"] + C["Fe"]
     df_corrected["Zn"] = B["Zn"] * df_corrected["High-Z_Zn-Kα"] + C["Zn"]
 
+    # Rb, Sr
     df_corrected["Rb"] = B["Rb"] * (df_corrected["High-Z_Rb-Kα"] / df_corrected[ag_col]) + C["Rb"]
     df_corrected["Sr"] = B["Sr"] * (df_corrected["High-Z_Sr-Kα"] / df_corrected[ag_col]) + C["Sr"]
 
+    # Y, Zr, Nb
     df_corrected["Y"] = (
         B["Y"] * (df_corrected["High-Z_Y-Kα"] / df_corrected[ag_col])
         + C["Y"]
@@ -263,7 +285,7 @@ def apply_drift_and_quantification(df):
         "Nb": "Nb ppm",
     })
 
-    return df_result
+    return df_result, drift_factors
 
 
 def to_excel_bytes(df):
@@ -274,26 +296,124 @@ def to_excel_bytes(df):
     return output.getvalue()
 
 
-uploaded = st.file_uploader("CSV形式のファイルをアップロード", type=["csv"])
+# =========================
+# 3. 対話UI
+# =========================
+uploaded = st.file_uploader("cps/μA 形式のCSVをアップロード", type=["csv"])
 
-if uploaded is not None:
-    try:
-        rows = read_uploaded_csv(uploaded)
-        df_counts = extract_cps_blocks(rows)
-        df_result = apply_drift_and_quantification(df_counts)
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-        st.success(f"処理成功: {len(df_result)} 行 × {len(df_result.columns)} 列")
-        st.dataframe(df_result, use_container_width=True)
+if "df_result" not in st.session_state:
+    st.session_state.df_result = None
 
-        excel_bytes = to_excel_bytes(df_result)
+if "excel_bytes" not in st.session_state:
+    st.session_state.excel_bytes = None
+
+if "drift_factors" not in st.session_state:
+    st.session_state.drift_factors = None
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+
+prompt = st.chat_input("例：定量計算して / 補正係数を見せて")
+
+if prompt:
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    with st.chat_message("user"):
+        st.write(prompt)
+
+    lower_prompt = prompt.lower()
+
+    if uploaded is None:
+        reply = "まず csp/μA 形式のCSVファイルをアップロードしてください。"
+        with st.chat_message("assistant"):
+            st.write(reply)
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+
+    elif ("定量" in prompt) or ("計算" in prompt):
+        try:
+            rows = read_uploaded_csv(uploaded)
+            df_counts = extract_cps_blocks(rows)
+            df_result, drift_factors = apply_drift_and_quantification(df_counts)
+            excel_bytes = to_excel_bytes(df_result)
+
+            st.session_state.df_result = df_result
+            st.session_state.excel_bytes = excel_bytes
+            st.session_state.drift_factors = drift_factors
+
+            reply = (
+                f"定量計算が完了しました。{len(df_result)} 行の結果を作成しました。"
+                "下に結果表を表示し，Excelもダウンロードできます。"
+            )
+
+            with st.chat_message("assistant"):
+                st.write(reply)
+
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+
+        except Exception as e:
+            reply = f"処理中にエラーが出ました: {e}"
+            with st.chat_message("assistant"):
+                st.write(reply)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+
+    elif ("補正係数" in prompt) or ("drift" in lower_prompt):
+        if st.session_state.drift_factors is None:
+            reply = "まだ補正係数がありません。先に「定量計算して」と入力してください。"
+            with st.chat_message("assistant"):
+                st.write(reply)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+        else:
+            with st.chat_message("assistant"):
+                st.write("ドリフト補正係数を表示します。")
+                drift_df = pd.DataFrame(
+                    {
+                        "Line": list(st.session_state.drift_factors.keys()),
+                        "Drift factor": list(st.session_state.drift_factors.values()),
+                    }
+                )
+                st.dataframe(drift_df, use_container_width=True)
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": "ドリフト補正係数を表示しました。"}
+            )
+
+    elif ("結果" in prompt) or ("表" in prompt):
+        if st.session_state.df_result is None:
+            reply = "まだ結果がありません。先に「定量計算して」と入力してください。"
+            with st.chat_message("assistant"):
+                st.write(reply)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+        else:
+            with st.chat_message("assistant"):
+                st.write("現在の定量結果を表示します。")
+                st.dataframe(st.session_state.df_result, use_container_width=True)
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": "定量結果を表示しました。"}
+            )
+
+    else:
+        reply = "現在対応している指示は「定量計算して」「補正係数を見せて」「結果を見せて」です。"
+        with st.chat_message("assistant"):
+            st.write(reply)
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+
+if st.session_state.df_result is not None:
+    st.subheader("定量結果")
+    st.dataframe(st.session_state.df_result, use_container_width=True)
+
+    if uploaded is not None:
         base_name = uploaded.name.rsplit(".", 1)[0]
+    else:
+        base_name = "result"
 
-        st.download_button(
-            label="Excelをダウンロード",
-            data=excel_bytes,
-            file_name=f"{base_name}_quantified_results.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-    except Exception as e:
-        st.error(f"処理中にエラーが出ました: {e}")
+    st.download_button(
+        label="Excelをダウンロード",
+        data=st.session_state.excel_bytes,
+        file_name=f"{base_name}_quantified_results.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
