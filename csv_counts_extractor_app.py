@@ -299,7 +299,7 @@ def to_excel_bytes(df):
 # =========================
 # 3. 対話UI
 # =========================
-uploaded = st.file_uploader("NEX DEから出力したCSVをアップロード", type=["csv"])
+uploaded = st.file_uploader("NEX DEから出力したCSVファイルをアップロード", type=["csv"])
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -328,7 +328,7 @@ if prompt:
     lower_prompt = prompt.lower()
 
     if uploaded is None:
-        reply = "まず，NEX DEから出力したCSVをアップロードしてください。"
+        reply = "まず，NEX DEから出力したCSVファイルをアップロードしてください。"
         with st.chat_message("assistant"):
             st.write(reply)
         st.session_state.messages.append({"role": "assistant", "content": reply})
