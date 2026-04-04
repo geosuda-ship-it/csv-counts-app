@@ -1,159 +1,262 @@
 import csv
-from io import StringIO, BytesIO
-
+from collections import Counter
 import pandas as pd
-import streamlit as st
 
-st.set_page_config(page_title="CSV counts extractor", page_icon="🧪", layout="wide")
+# =========================
+# 0. 入出力ファイル
+# =========================
+input_file = "20260316.csv"
+output_file = "quantified_results.xlsx"
 
-st.title("CSV counts extractor")
-st.write("CSVをアップロードすると，counts ブロックを整理して表にします。")
+# =========================
+# 1. QC-2 基準強度（cps/μA）
+# =========================
+reference_qc2 = {
+    "Mid-Z_K-Kα": 4.2841,
+    "Mid-Z_Ca-Kβ1": 0.1575,
+    "Mid-Z_Mn-Kα": 0.9233,
+    "Mid-Z_Fe-Kβ1": 3.2176,
+    "High-Z_Zn-Kα": 0.0108,
+    "High-Z_Rb-Kα": 0.1363,
+    "High-Z_Sr-Kα": 0.0451,
+    "High-Z_Y-Kα": 0.0600,
+    "High-Z_Zr-Kα": 0.1032,
+    "High-Z_Nb-Kα": 0.0657,
+    "High-Z_Ag-Kα": 1.3920,
+}
 
+target_cols = list(reference_qc2.keys())
 
-def read_uploaded_csv(uploaded_file):
-    raw = uploaded_file.getvalue()
+# =========================
+# 2. 検量線定数
+# =========================
+B = {
+    "K": 9278.19,
+    "Ca": 30241.3,
+    "Mn": 742.281,
+    "Fe": 3996.0,
+    "Zn": 11115.8,
+    "Rb": 2021.13,
+    "Sr": 1747.57,
+    "Y": 1291.92,
+    "Zr": 1226.15,
+    "Nb": 1120.36,
+}
 
-    encodings = ["cp932", "utf-8-sig", "utf-8"]
-    last_error = None
+C = {
+    "K": -1334.6,
+    "Ca": -275.371,
+    "Mn": -328.074,
+    "Fe": -5437.0,
+    "Zn": -44.1916,
+    "Rb": -8.69875,
+    "Sr": -12.4792,
+    "Y": -8.57,
+    "Zr": -16.6585,
+    "Nb": -29.34,
+}
 
-    for enc in encodings:
-        try:
-            text = raw.decode(enc, errors="replace")
-            return list(csv.reader(StringIO(text)))
-        except Exception as e:
-            last_error = e
+# 重なり補正係数
+BG14 = -0.12     # Y に対する Rb
+BG15 = -0.12412  # Zr に対する Sr
+BG16 = -0.18     # Nb に対する Y
 
-    raise ValueError(f"CSVを読み込めませんでした: {last_error}")
+# =========================
+# 3. 生CSV読み込み
+# =========================
+with open(input_file, "r", encoding="cp932", errors="replace", newline="") as f:
+    rows = list(csv.reader(f))
 
+# =========================
+# 4. cps/μA ブロック位置を探す
+# =========================
+cps_indices = [
+    i for i, row in enumerate(rows)
+    if "cps/μa" in [str(x).strip().lower() for x in row]
+]
 
-def build_dataframe_from_counts_blocks(rows):
-    # -----------------------------
-    # counts 行をすべて取得
-    # -----------------------------
-    counts_indices = [
-        i for i, row in enumerate(rows)
-        if "counts" in [str(x).strip().lower() for x in row]
-    ]
+if not cps_indices:
+    raise ValueError("cps/μA 行が見つかりません")
 
-    if not counts_indices:
-        raise ValueError("counts 行が見つかりません")
+# =========================
+# 5. cps/μA データ抽出
+# =========================
+all_data = []
+columns = None
 
-    # -----------------------------
-    # 全ブロックを格納
-    # -----------------------------
-    all_data = []
-    columns = None
+for idx in cps_indices:
+    if idx < 2:
+        continue
 
-    for idx in counts_indices:
-        if idx < 2:
-            continue
+    header1 = rows[idx - 2]
+    header2 = rows[idx - 1]
 
-        # ヘッダー（2段）
-        header1 = rows[idx - 2]
-        header2 = rows[idx - 1]
+    # 最初のブロックで列名作成
+    if columns is None:
+        new_cols = []
+        seen = {}
 
-        # 列名作成（最初だけ使う）
-        if columns is None:
-            new_cols = []
-            for h1, h2 in zip(header1[3:], header2[3:]):
-                h1 = str(h1).strip()
-                h2 = str(h2).strip()
-                if h1 and h2:
-                    new_cols.append(f"{h1}_{h2}")
-                elif h2:
-                    new_cols.append(h2)
-                else:
-                    new_cols.append(h1)
+        for h1, h2 in zip(header1[3:], header2[3:]):
+            h1 = str(h1).strip()
+            h2 = str(h2).strip()
 
-            columns = ["Sample", "Method", "Date"] + new_cols
+            if h1 and h2:
+                name = f"{h1}_{h2}"
+            elif h2:
+                name = h2
+            else:
+                name = h1
 
-        # データ取得（countsの下から次の空行まで）
-        for row in rows[idx + 1:]:
-            if len(row) == 0 or all(str(x).strip() == "" for x in row):
-                break
+            # 重複列名があれば _2, _3 を付ける
+            if name in seen:
+                seen[name] += 1
+                name = f"{name}_{seen[name]}"
+            else:
+                seen[name] = 1
 
-            # 列数をそろえる
-            if len(row) < len(columns):
-                row = row + [""] * (len(columns) - len(row))
-            elif len(row) > len(columns):
-                row = row[:len(columns)]
+            new_cols.append(name)
 
-            all_data.append(row)
+        columns = ["Sample", "Method", "Date"] + new_cols
 
-    if not all_data:
-        raise ValueError("counts データが見つかりませんでした")
+    # cps/μA 行の下から空行までをデータ取得
+    for row in rows[idx + 1:]:
+        if len(row) == 0 or all(str(x).strip() == "" for x in row):
+            break
 
-    # -----------------------------
-    # DataFrame化
-    # -----------------------------
-    df = pd.DataFrame(all_data, columns=columns)
+        # 列数を合わせる
+        if len(row) < len(columns):
+            row = row + [""] * (len(columns) - len(row))
+        elif len(row) > len(columns):
+            row = row[:len(columns)]
 
-    # 数値変換
-    for col in columns[3:]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+        all_data.append(row)
 
-    # 日付変換
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+if not all_data:
+    raise ValueError("cps/μA データが見つかりません")
 
-    # 並び順を定義
-    order = {
-        "obart_prec2_air": 0,
-        "obart_stand2_air": 1,
-        "obart_quick2_air": 2
-        
-    }
+# =========================
+# 6. DataFrame化
+# =========================
+df = pd.DataFrame(all_data, columns=columns)
 
-    # 並び替え
-    df["sort_key"] = df["Method"].map(order).fillna(999)
-    df = df.sort_values(["sort_key", "Sample"], kind="stable").drop(columns="sort_key")
+# 数値変換（列番号で行う：重複列名対策）
+for i in range(3, len(columns)):
+    df.iloc[:, i] = pd.to_numeric(df.iloc[:, i], errors="coerce")
 
-    return df
+# 日付変換（失敗してもそのまま）
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
+# =========================
+# 7. Method順に並べ替え
+# =========================
+order = {
+    "obart_prec2_air": 0,
+    "obart_stand2_air": 1,
+    "obart_quick2_air": 2
+}
 
-def dataframe_to_csv_bytes(df):
-    return df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+df["sort_key"] = df["Method"].map(order).fillna(999)
+df = df.sort_values(["sort_key", "Sample"], kind="stable").drop(columns="sort_key")
 
+# =========================
+# 8. QC-2 / QC2 を認識
+# =========================
+sample_norm = (
+    df["Sample"]
+    .astype(str)
+    .str.strip()
+    .str.upper()
+    .str.replace("-", "", regex=False)
+    .str.replace(" ", "", regex=False)
+)
 
-def dataframe_to_excel_bytes(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="cleaned_counts")
-    output.seek(0)
-    return output.getvalue()
+qc2_rows = df[sample_norm == "QC2"]
 
+if qc2_rows.empty:
+    raise ValueError("QC-2 または QC2 の行が見つかりません")
 
-uploaded = st.file_uploader("CSVをドロップ", type=["csv"])
+qc2_measured = qc2_rows.iloc[0]
 
-if uploaded is not None:
-    try:
-        rows = read_uploaded_csv(uploaded)
-        df = build_dataframe_from_counts_blocks(rows)
+# =========================
+# 9. ドリフト補正係数算出
+# =========================
+drift_factors = {}
 
-        st.success(f"処理成功: {len(df)} 行 × {len(df.columns)} 列")
-        st.dataframe(df, use_container_width=True)
+for col in target_cols:
+    if col not in df.columns:
+        raise ValueError(f"必要な列が見つかりません: {col}")
 
-        base_name = uploaded.name.rsplit(".", 1)[0]
+    measured_val = qc2_measured[col]
+    ref_val = reference_qc2[col]
 
-        csv_bytes = dataframe_to_csv_bytes(df)
-        excel_bytes = dataframe_to_excel_bytes(df)
+    if pd.isna(measured_val) or measured_val == 0:
+        drift_factors[col] = None
+    else:
+        drift_factors[col] = ref_val / measured_val
 
-        col1, col2 = st.columns(2)
+# =========================
+# 10. ドリフト補正
+# =========================
+df_corrected = df.copy()
 
-        with col1:
-            st.download_button(
-                label="CSVを保存",
-                data=csv_bytes,
-                file_name=f"{base_name}_cleaned_counts.csv",
-                mime="text/csv",
-            )
+for col in target_cols:
+    factor = drift_factors[col]
+    if factor is not None:
+        df_corrected[col] = df_corrected[col] * factor
 
-        with col2:
-            st.download_button(
-                label="Excelを保存",
-                data=excel_bytes,
-                file_name=f"{base_name}_cleaned_counts.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+# =========================
+# 11. 定量計算
+# =========================
+ag_col = "High-Z_Ag-Kα"
 
-    except Exception as e:
-        st.error(f"処理中にエラーが出ました: {e}")
+if ag_col not in df_corrected.columns:
+    raise ValueError(f"Ag 内標準列が見つかりません: {ag_col}")
+
+# K〜Zn（強度そのまま）
+df_corrected["K"]  = B["K"]  * df_corrected["Mid-Z_K-Kα"]    + C["K"]
+df_corrected["Ca"] = B["Ca"] * df_corrected["Mid-Z_Ca-Kβ1"]  + C["Ca"]
+df_corrected["Mn"] = B["Mn"] * df_corrected["Mid-Z_Mn-Kα"]   + C["Mn"]
+df_corrected["Fe"] = B["Fe"] * df_corrected["Mid-Z_Fe-Kβ1"]  + C["Fe"]
+df_corrected["Zn"] = B["Zn"] * df_corrected["High-Z_Zn-Kα"]  + C["Zn"]
+
+# Rb, Sr（Ag 内標準）
+df_corrected["Rb"] = B["Rb"] * (df_corrected["High-Z_Rb-Kα"] / df_corrected[ag_col]) + C["Rb"]
+df_corrected["Sr"] = B["Sr"] * (df_corrected["High-Z_Sr-Kα"] / df_corrected[ag_col]) + C["Sr"]
+
+# Y, Zr, Nb（重なり補正込み）
+df_corrected["Y"]  = B["Y"]  * (df_corrected["High-Z_Y-Kα"]  / df_corrected[ag_col]) + C["Y"]  + df_corrected["Rb"] * BG14
+df_corrected["Zr"] = B["Zr"] * (df_corrected["High-Z_Zr-Kα"] / df_corrected[ag_col]) + C["Zr"] + df_corrected["Sr"] * BG15
+df_corrected["Nb"] = B["Nb"] * (df_corrected["High-Z_Nb-Kα"] / df_corrected[ag_col]) + C["Nb"] + df_corrected["Y"]  * BG16
+
+# =========================
+# 12. 最終結果だけ残す
+# =========================
+result_cols = [
+    "Sample", "Method", "Date",
+    "K", "Ca", "Mn", "Fe", "Zn",
+    "Rb", "Sr", "Y", "Zr", "Nb"
+]
+
+df_result = df_corrected[result_cols].copy()
+
+# 列名を ppm 付きに変更
+df_result = df_result.rename(columns={
+    "K": "K ppm",
+    "Ca": "Ca ppm",
+    "Mn": "Mn ppm",
+    "Fe": "Fe ppm",
+    "Zn": "Zn ppm",
+    "Rb": "Rb ppm",
+    "Sr": "Sr ppm",
+    "Y": "Y ppm",
+    "Zr": "Zr ppm",
+    "Nb": "Nb ppm",
+})
+
+# =========================
+# 13. Excel 出力
+# =========================
+df_result.to_excel(output_file, index=False)
+
+print(f"保存完了: {output_file}")
+print(df_result.head())
