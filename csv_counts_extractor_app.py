@@ -6,7 +6,7 @@ import streamlit as st
 
 st.set_page_config(page_title="XRF quantification app", page_icon="🧪", layout="wide")
 
-st.title("NEX DE 強度→定量値変換アプリ")
+st.title("NEX DE 強度→定量値変換アプリ 長崎大ver1")
 st.write("NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，定量値の算出を自動で行い，ボタン操作によりExcelファイルとしてダウンロードできます。ドリフト補正に用いるため，QC-2のデータは出力結果にも必ず含めてください。")
 
 reference_qc2 = {
