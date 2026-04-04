@@ -136,22 +136,27 @@ def extract_cps_blocks(rows):
 
     df = pd.DataFrame(all_data, columns=columns)
 
-    def clean_numeric(x):
-        if isinstance(x, str):
-            parts = x.split()
-            if len(parts) >= 2:
-                try:
-                    return float(parts[-1])
-                except Exception:
-                    return None
-        return x
+def clean_numeric(x):
+    if isinstance(x, str):
+        parts = x.split()
+        if len(parts) >= 2:
+            try:
+                return float(parts[-1])
+            except Exception:
+                return None
+        try:
+            return float(x)
+        except Exception:
+            return None
+    return x
 
-    for i in range(3, len(columns)):
-        df.iloc[:, i] = df.iloc[:, i].apply(clean_numeric)
-        df.iloc[:, i] = pd.to_numeric(df.iloc[:, i], errors="coerce")
+# 数値列だけ別に処理してから戻す
+numeric_df = df.iloc[:, 3:].applymap(clean_numeric)
+numeric_df = numeric_df.apply(pd.to_numeric, errors="coerce")
 
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+df = pd.concat([df.iloc[:, :3].copy(), numeric_df], axis=1)
 
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     order = {
         "obart_prec2_air": 0,
         "obart_stand2_air": 1,
