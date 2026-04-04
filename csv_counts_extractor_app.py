@@ -97,8 +97,10 @@ def build_dataframe_from_counts_blocks(rows):
 
     # 並び順を定義
     order = {
-        "obart_stand2_air": 0,
-        "obart_quick2_air": 1
+        "obart_prec2_air": 0,
+        "obart_stand2_air": 1,
+        "obart_quick2_air": 2
+        
     }
 
     # 並び替え
