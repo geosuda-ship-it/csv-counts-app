@@ -55,6 +55,7 @@ C = {
     "Nb": -29.34,
 }
 
+# 重なり補正係数
 BG14 = -0.12
 BG15 = -0.12412
 BG16 = -0.18
@@ -68,8 +69,7 @@ def read_uploaded_csv(uploaded_file):
     for enc in encodings:
         try:
             text = raw.decode(enc, errors="replace")
-            rows = list(csv.reader(StringIO(text)))
-            return rows
+            return list(csv.reader(StringIO(text)))
         except Exception as e:
             last_error = e
 
@@ -136,31 +136,44 @@ def extract_cps_blocks(rows):
 
     df = pd.DataFrame(all_data, columns=columns)
 
-def clean_numeric(x):
-    if isinstance(x, str):
-        parts = x.split()
+    def clean_numeric(x):
+        if pd.isna(x):
+            return None
+
+        if isinstance(x, (int, float)):
+            return x
+
+        s = str(x).strip()
+        if s == "":
+            return None
+
+        parts = s.split()
+
+        # "0 3.477209" のような場合は最後の値を使う
         if len(parts) >= 2:
             try:
                 return float(parts[-1])
             except Exception:
-                return None
+                pass
+
         try:
-            return float(x)
+            return float(s)
         except Exception:
             return None
-    return x
 
-# 数値列だけ別に処理してから戻す
-numeric_df = df.iloc[:, 3:].applymap(clean_numeric)
-numeric_df = numeric_df.apply(pd.to_numeric, errors="coerce")
+    numeric_df = df.iloc[:, 3:].copy()
+    for col in numeric_df.columns:
+        numeric_df[col] = numeric_df[col].map(clean_numeric)
+        numeric_df[col] = pd.to_numeric(numeric_df[col], errors="coerce")
 
-df = pd.concat([df.iloc[:, :3].copy(), numeric_df], axis=1)
+    df = pd.concat([df.iloc[:, :3].copy(), numeric_df], axis=1)
 
-df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
     order = {
         "obart_prec2_air": 0,
         "obart_stand2_air": 1,
-        "obart_quick2_air": 2
+        "obart_quick2_air": 2,
     }
 
     df["sort_key"] = df["Method"].map(order).fillna(999)
@@ -210,20 +223,32 @@ def apply_drift_and_quantification(df):
         raise ValueError(f"Ag 内標準列が見つかりません: {ag_col}")
 
     # K〜Zn
-    df_corrected["K"]  = B["K"]  * df_corrected["Mid-Z_K-Kα"]    + C["K"]
-    df_corrected["Ca"] = B["Ca"] * df_corrected["Mid-Z_Ca-Kβ1"]  + C["Ca"]
-    df_corrected["Mn"] = B["Mn"] * df_corrected["Mid-Z_Mn-Kα"]   + C["Mn"]
-    df_corrected["Fe"] = B["Fe"] * df_corrected["Mid-Z_Fe-Kβ1"]  + C["Fe"]
-    df_corrected["Zn"] = B["Zn"] * df_corrected["High-Z_Zn-Kα"]  + C["Zn"]
+    df_corrected["K"] = B["K"] * df_corrected["Mid-Z_K-Kα"] + C["K"]
+    df_corrected["Ca"] = B["Ca"] * df_corrected["Mid-Z_Ca-Kβ1"] + C["Ca"]
+    df_corrected["Mn"] = B["Mn"] * df_corrected["Mid-Z_Mn-Kα"] + C["Mn"]
+    df_corrected["Fe"] = B["Fe"] * df_corrected["Mid-Z_Fe-Kβ1"] + C["Fe"]
+    df_corrected["Zn"] = B["Zn"] * df_corrected["High-Z_Zn-Kα"] + C["Zn"]
 
     # Rb, Sr
     df_corrected["Rb"] = B["Rb"] * (df_corrected["High-Z_Rb-Kα"] / df_corrected[ag_col]) + C["Rb"]
     df_corrected["Sr"] = B["Sr"] * (df_corrected["High-Z_Sr-Kα"] / df_corrected[ag_col]) + C["Sr"]
 
     # Y, Zr, Nb
-    df_corrected["Y"]  = B["Y"]  * (df_corrected["High-Z_Y-Kα"]  / df_corrected[ag_col]) + C["Y"]  + df_corrected["Rb"] * BG14
-    df_corrected["Zr"] = B["Zr"] * (df_corrected["High-Z_Zr-Kα"] / df_corrected[ag_col]) + C["Zr"] + df_corrected["Sr"] * BG15
-    df_corrected["Nb"] = B["Nb"] * (df_corrected["High-Z_Nb-Kα"] / df_corrected[ag_col]) + C["Nb"] + df_corrected["Y"]  * BG16
+    df_corrected["Y"] = (
+        B["Y"] * (df_corrected["High-Z_Y-Kα"] / df_corrected[ag_col])
+        + C["Y"]
+        + df_corrected["Rb"] * BG14
+    )
+    df_corrected["Zr"] = (
+        B["Zr"] * (df_corrected["High-Z_Zr-Kα"] / df_corrected[ag_col])
+        + C["Zr"]
+        + df_corrected["Sr"] * BG15
+    )
+    df_corrected["Nb"] = (
+        B["Nb"] * (df_corrected["High-Z_Nb-Kα"] / df_corrected[ag_col])
+        + C["Nb"]
+        + df_corrected["Y"] * BG16
+    )
 
     result_cols = [
         "Sample", "Method", "Date",
@@ -253,30 +278,3 @@ def to_excel_bytes(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="quantified_results")
-    output.seek(0)
-    return output.getvalue()
-
-
-uploaded = st.file_uploader("cps/μA 形式のCSVをアップロード", type=["csv"])
-
-if uploaded is not None:
-    try:
-        rows = read_uploaded_csv(uploaded)
-        df_counts = extract_cps_blocks(rows)
-        df_result = apply_drift_and_quantification(df_counts)
-
-        st.success(f"処理成功: {len(df_result)} 行 × {len(df_result.columns)} 列")
-        st.dataframe(df_result, use_container_width=True)
-
-        excel_bytes = to_excel_bytes(df_result)
-        base_name = uploaded.name.rsplit(".", 1)[0]
-
-        st.download_button(
-            label="Excelをダウンロード",
-            data=excel_bytes,
-            file_name=f"{base_name}_quantified_results.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-    except Exception as e:
-        st.error(f"処理中にエラーが出ました: {e}")
