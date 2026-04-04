@@ -6,7 +6,7 @@ import streamlit as st
 
 st.set_page_config(page_title="XRF quantification app", page_icon="🧪", layout="wide")
 
-st.title("XRF quantification app")
+st.title("NEX DE 強度→定量値変換アプリ")
 st.write("NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，および定量値の算出を自動で行い，結果をExcelファイルとして出力します。なお，ドリフト補正のため，QC-2のデータを必ず同じCSVファイルに含めてください。")
 
 reference_qc2 = {
@@ -274,7 +274,7 @@ def to_excel_bytes(df):
     return output.getvalue()
 
 
-uploaded = st.file_uploader("cps/μA 形式のCSVをアップロード", type=["csv"])
+uploaded = st.file_uploader("CSV形式のファイルをアップロード", type=["csv"])
 
 if uploaded is not None:
     try:
