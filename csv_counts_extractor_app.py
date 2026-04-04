@@ -4,9 +4,9 @@ from io import StringIO, BytesIO
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="NEX DE 強度→定量値変換アプリ", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="NEX DE 強度→定量値変換アプリ（長崎大ver1）", page_icon="🧪", layout="wide")
 
-st.title("NEX DE 強度→定量値変換アプリ")
+st.title("NEX DE 強度→定量値変換アプリ（長崎大ver1）")
 st.write(
     "NEX DEから出力したCSVファイルをアップロードすると，"
     "強度データの抽出，ドリフト補正，定量値の算出を自動で行い，"
@@ -299,7 +299,7 @@ def to_excel_bytes(df):
 # =========================
 # 3. 対話UI
 # =========================
-uploaded = st.file_uploader("cps/μA 形式のCSVをアップロード", type=["csv"])
+uploaded = st.file_uploader("NEX DEから出力したCSVをアップロード", type=["csv"])
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -328,7 +328,7 @@ if prompt:
     lower_prompt = prompt.lower()
 
     if uploaded is None:
-        reply = "まず csp/μA 形式のCSVファイルをアップロードしてください。"
+        reply = "まず，NEX DEから出力したCSVをアップロードしてください。"
         with st.chat_message("assistant"):
             st.write(reply)
         st.session_state.messages.append({"role": "assistant", "content": reply})
