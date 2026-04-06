@@ -11,8 +11,10 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("NEX DE 強度→定量値変換アプリ（長崎大ver1）")
-st.caption("CSV extraction · drift correction · quantitative conversion · Excel export")
+st.markdown("""
+<div class="app-title">NEX DE 強度→定量値変換アプリ（長崎大ver1）</div>
+<div class="app-subtitle">CSV extraction · drift correction · quantitative conversion · Excel export</div>
+""", unsafe_allow_html=True)
 st.write(
     "NEX DEから出力したCSVファイルをアップロードすると，"
     "強度データの抽出，ドリフト補正，定量値の算出を自動で行い，"
@@ -81,13 +83,23 @@ st.markdown("""
     border-radius: 14px;
 }
 
-/* タイトル */
-h1 {
+/* カスタムタイトル */
+.app-title {
+    font-size: 4.4rem;
+    font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.25 !important;
-    padding-top: 0.3rem;
-    padding-bottom: 0.2rem;
+    line-height: 1.18;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
     margin-top: 0.2rem;
+    margin-bottom: 0.6rem;
+    color: #2f3342;
+}
+
+.app-subtitle {
+    font-size: 1rem;
+    color: #7b8190;
+    margin-bottom: 1.2rem;
 }
 </style>
 """, unsafe_allow_html=True)
