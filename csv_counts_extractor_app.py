@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.markdown("""
-<div class="app-title">Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — Nagasaki Univ. Ver.</div>
+<div class="app-title">Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — Nagasaki University Edition</div>
 <div class="app-subtitle">Rigaku NEX DE用 強度から定量値への変換ツール（長崎大学版）</div>
 """, unsafe_allow_html=True)
 st.write(
@@ -85,7 +85,7 @@ st.markdown("""
 
 /* カスタムタイトル */
 .app-title {
-    font-size: 4.4rem;
+    font-size: 1.6rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.18;
