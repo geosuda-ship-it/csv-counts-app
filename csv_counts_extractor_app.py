@@ -84,6 +84,10 @@ st.markdown("""
 /* タイトル */
 h1 {
     letter-spacing: -0.02em;
+    line-height: 1.25 !important;
+    padding-top: 0.3rem;
+    padding-bottom: 0.2rem;
+    margin-top: 0.2rem;
 }
 </style>
 """, unsafe_allow_html=True)
