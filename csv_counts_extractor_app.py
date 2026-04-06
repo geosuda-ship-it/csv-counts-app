@@ -288,7 +288,7 @@ def apply_drift_and_quantification(df):
     # Date のみで新しい順
     df_result = df_result.sort_values(
         "Date",
-        ascending=False,
+        ascending=True,
         na_position="last"
     ).reset_index(drop=True)
 
@@ -302,7 +302,7 @@ def to_excel_bytes(df):
     # Excel 出力直前にも Date のみで新しい順に固定
     df = df.sort_values(
         "Date",
-        ascending=False,
+        ascending=True,
         na_position="last"
     ).reset_index(drop=True)
 
