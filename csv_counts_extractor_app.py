@@ -285,6 +285,9 @@ def apply_drift_and_quantification(df):
         "Nb": "Nb ppm",
     })
 
+    # ★ ここを追加（新しい日付が上）
+    df_result = df_result.sort_values("Date", ascending=False)
+
     return df_result, drift_factors
 
 
@@ -381,6 +384,51 @@ if prompt:
                 {"role": "assistant", "content": "ドリフト補正係数を表示しました。"}
             )
 
+    elif ("検量線定数" in prompt) or ("bとc" in lower_prompt) or ("b c" in lower_prompt):
+        with st.chat_message("assistant"):
+            st.write("検量線定数（B, C）を表示します。")
+            calib_df = pd.DataFrame({
+                "Element": list(B.keys()),
+                "B": [B[k] for k in B.keys()],
+                "C": [C[k] for k in C.keys()],
+            })
+            st.dataframe(calib_df, use_container_width=True)
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": "検量線定数（B, C）を表示しました。"}
+        )
+
+    elif ("重なり補正係数" in prompt) or ("bg14" in lower_prompt) or ("bg15" in lower_prompt) or ("bg16" in lower_prompt):
+        with st.chat_message("assistant"):
+            st.write("重なり補正係数を表示します。")
+            overlap_df = pd.DataFrame({
+                "Coefficient": ["BG14", "BG15", "BG16"],
+                "Value": [BG14, BG15, BG16],
+                "Meaning": [
+                    "Y 補正に使う Rb 項の係数",
+                    "Zr 補正に使う Sr 項の係数",
+                    "Nb 補正に使う Y 項の係数",
+                ],
+            })
+            st.dataframe(overlap_df, use_container_width=True)
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": "重なり補正係数を表示しました。"}
+        )
+
+    elif ("qc-2基準強度" in prompt.lower()) or ("qc2基準強度" in prompt.lower()) or ("基準強度" in prompt):
+        with st.chat_message("assistant"):
+            st.write("QC-2 基準強度を表示します。")
+            qc2_df = pd.DataFrame({
+                "Line": list(reference_qc2.keys()),
+                "Reference intensity (cps/μA)": list(reference_qc2.values()),
+            })
+            st.dataframe(qc2_df, use_container_width=True)
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": "QC-2 基準強度を表示しました。"}
+        )
+    
     elif ("結果" in prompt) or ("表" in prompt):
         if st.session_state.df_result is None:
             reply = "まだ結果がありません。先に「定量計算して」と入力してください。"
