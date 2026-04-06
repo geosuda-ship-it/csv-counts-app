@@ -6,100 +6,18 @@ import streamlit as st
 from openpyxl.utils import get_column_letter
 
 st.set_page_config(
-    page_title="Rigaku NEX DE Conversion Tool — Nagasaki Univ.",
+    page_title="NEX DE 強度→定量値変換アプリ（長崎大ver1）",
     page_icon="🧪",
     layout="wide"
 )
 
-st.markdown("""
-<div class="app-title">
-Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — Nagasaki University Edition
-</div>
-<div class="app-subtitle">
-Rigaku NEX DE用 強度から定量値への変換ツール（長崎大学版）
-</div>
-<div class="app-desc">
-NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，定量値の算出を自動で行い，ボタンを押すことで結果をExcelファイルとしてダウンロードできます。<br><br>
-<strong>注意）</strong>ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください。
-</div>
-""", unsafe_allow_html=True)
-
-<style>
-/* 全体の余白 */
-.block-container {
-    padding-top: 4rem;
-    padding-bottom: 2rem;
-}
-
-/* チャットメッセージ */
-[data-testid="stChatMessage"] {
-    border-radius: 18px;
-    padding: 0.8rem 1rem;
-    margin-bottom: 0.8rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-}
-
-/* assistant側 */
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
-    background: linear-gradient(135deg, #f7fbff 0%, #eef7ff 100%);
-    border: 1px solid #d7e9f7;
-}
-
-/* user側 */
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
-    background: linear-gradient(135deg, #fcfcfc 0%, #f5f5f5 100%);
-    border: 1px solid #e5e7eb;
-}
-
-/* アバター背景を消す */
-[data-testid="stChatMessageAvatar"] {
-    background: transparent !important;
-    border: none !important;
-}
-
-/* データフレーム */
-[data-testid="stDataFrame"] {
-    border-radius: 14px;
-    overflow: hidden;
-}
-
-/* ダウンロードボタン */
-.stDownloadButton button {
-    border-radius: 12px !important;
-    border: 1px solid #cfd8e3 !important;
-    background: linear-gradient(135deg, #ffffff 0%, #f4f8fc 100%) !important;
-    color: #1f2937 !important;
-    font-weight: 600 !important;
-    padding: 0.6rem 1rem !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
-}
-
-.stDownloadButton button:hover {
-    border-color: #93c5fd !important;
-    color: #0f172a !important;
-}
-
-/* 入力欄 */
-[data-testid="stChatInput"] {
-    border-radius: 14px;
-}
-
-/* カスタムタイトル */
-.app-title {
-    font-size: 1.35rem;
-    font-weight: 600;
-    line-height: 1.35;
-    margin: 0 0 0.25rem 0;
-    word-break: break-word;
-}
-
-.app-subtitle {
-    font-size: 0.95rem;
-    color: #111827;
-    margin-bottom: 0.8rem;
-}
-</style>
-""", unsafe_allow_html=True)
+st.title("NEX DE 強度→定量値変換アプリ（長崎大ver1）")
+st.write(
+    "NEX DEから出力したCSVファイルをアップロードすると，"
+    "強度データの抽出，ドリフト補正，定量値の算出を自動で行い，"
+    "ボタンを押すことで結果をExcelファイルとしてダウンロードできます。"
+)
+st.write("注意）ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください。")
 
 # =========================
 # 1. QC-2 基準強度（cps/μA）
@@ -473,18 +391,17 @@ if "drift_factors" not in st.session_state:
     st.session_state.drift_factors = None
 
 for msg in st.session_state.messages:
-    avatar = "🧑‍🔬" if msg["role"] == "user" else "🧪"
-    with st.chat_message(msg["role"], avatar=avatar):
+    with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
 prompt = st.chat_input(
-    "例：定量計算して / ドリフト補正係数を見せて / 検量線定数を見せて / 重なり補正係数を見せて"
+    "例：定量計算して / 補正係数を見せて / 検量線定数を出して / 重なり補正係数を出して"
 )
 
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    with st.chat_message("user", avatar="🧑‍🔬"):
+    with st.chat_message("user"):
         st.write(prompt)
 
     lower_prompt = prompt.lower().strip()
@@ -498,7 +415,7 @@ if prompt:
         ("drift" in lower_prompt)
     ):
         reply = "まず，NEX DEから出力したCSVファイルをアップロードしてください。"
-        with st.chat_message("assistant", avatar="⚠️"):
+        with st.chat_message("assistant"):
             st.write(reply)
         st.session_state.messages.append({"role": "assistant", "content": reply})
 
@@ -518,7 +435,7 @@ if prompt:
                 " 下に結果表を表示し，Excelもダウンロードできます。"
             )
 
-            with st.chat_message("assistant", avatar="🧪"):
+            with st.chat_message("assistant"):
                 st.write(reply)
                 st.dataframe(make_display_df(df_result), use_container_width=True)
 
@@ -526,18 +443,18 @@ if prompt:
 
         except Exception as e:
             reply = f"処理中にエラーが出ました: {e}"
-            with st.chat_message("assistant", avatar="⚠️"):
+            with st.chat_message("assistant"):
                 st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    elif ("ドリフト補正係数" in prompt) or ("drift" in lower_prompt):
+    elif ("補正係数" in prompt) or ("drift" in lower_prompt):
         if st.session_state.drift_factors is None:
-            reply = "まだドリフト補正係数がありません。先に「定量計算して」と入力してください。"
-            with st.chat_message("assistant", avatar="⚠️"):
+            reply = "まだ補正係数がありません。先に「定量計算して」と入力してください。"
+            with st.chat_message("assistant"):
                 st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
         else:
-            with st.chat_message("assistant", avatar="🧪"):
+            with st.chat_message("assistant"):
                 st.write("ドリフト補正係数を表示します。")
                 drift_df = pd.DataFrame({
                     "Line": list(st.session_state.drift_factors.keys()),
@@ -550,7 +467,7 @@ if prompt:
             )
 
     elif ("検量線定数" in prompt) or ("bとc" in lower_prompt) or ("b c" in lower_prompt):
-        with st.chat_message("assistant", avatar="🧪"):
+        with st.chat_message("assistant"):
             st.write("検量線定数（B, C）を表示します。")
             calib_df = pd.DataFrame({
                 "Element": list(B.keys()),
@@ -564,7 +481,7 @@ if prompt:
         )
 
     elif ("重なり補正係数" in prompt) or ("bg14" in lower_prompt) or ("bg15" in lower_prompt) or ("bg16" in lower_prompt):
-        with st.chat_message("assistant", avatar="🧪"):
+        with st.chat_message("assistant"):
             st.write("重なり補正係数を表示します。")
             overlap_df = pd.DataFrame({
                 "Coefficient": ["BG14", "BG15", "BG16"],
@@ -582,7 +499,7 @@ if prompt:
         )
 
     elif ("qc-2基準強度" in lower_prompt) or ("qc2基準強度" in lower_prompt) or ("基準強度" in prompt):
-        with st.chat_message("assistant", avatar="🧪"):
+        with st.chat_message("assistant"):
             st.write("QC-2 基準強度を表示します。")
             qc2_df = pd.DataFrame({
                 "Line": list(reference_qc2.keys()),
@@ -597,11 +514,11 @@ if prompt:
     elif ("結果" in prompt) or ("表" in prompt):
         if st.session_state.df_result is None:
             reply = "まだ結果がありません。先に「定量計算して」と入力してください。"
-            with st.chat_message("assistant", avatar="⚠️"):
+            with st.chat_message("assistant"):
                 st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
         else:
-            with st.chat_message("assistant", avatar="🧪"):
+            with st.chat_message("assistant"):
                 st.write("現在の定量結果を表示します。")
                 st.dataframe(make_display_df(st.session_state.df_result), use_container_width=True)
 
@@ -612,15 +529,18 @@ if prompt:
     else:
         reply = (
             "現在対応している指示は，"
-            "「定量計算して」「ドリフト補正係数を見せて」「結果を見せて」"
-            "「検量線定数を見せて」「重なり補正係数を見せて」"
-            "「QC-2基準強度を見せて」です。"
+            "「定量計算して」「補正係数を見せて」「結果を見せて」"
+            "「検量線定数を出して」「重なり補正係数を出して」"
+            "「QC-2基準強度を出して」です。"
         )
-        with st.chat_message("assistant", avatar="🧪"):
+        with st.chat_message("assistant"):
             st.write(reply)
         st.session_state.messages.append({"role": "assistant", "content": reply})
 
 if st.session_state.df_result is not None:
+    st.subheader("定量結果")
+    st.dataframe(make_display_df(st.session_state.df_result), use_container_width=True)
+
     if uploaded is not None:
         base_name = uploaded.name.rsplit(".", 1)[0]
     else:
