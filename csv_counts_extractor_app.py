@@ -538,7 +538,7 @@ if prompt:
             st.dataframe(qc2_df, use_container_width=True)
 
         st.session_state.messages.append(
-            {"role": "assistant", "content": "QC-2 基準強度を表示しました。"}
+            {"role": "assistant", "content": "基準強度を表示しました。"}
         )
 
     elif ("結果" in prompt) or ("表" in prompt):
@@ -559,7 +559,7 @@ if prompt:
     else:
         reply = (
             "現在対応している指示は，"
-            "「定量計算して」「ドリフト補正係数を見せて」「結果を見せて」"
+            "「定量計算して」「ドリフト補正係数を見せて」"
             "「検量線定数を見せて」「重なり補正係数を見せて」"
             "「基準強度を見せて」です。"
         )
