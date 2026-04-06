@@ -46,7 +46,7 @@ st.markdown("""
 <div class="app-title">Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — Nagasaki University Edition</div>
 <div class="app-subtitle">Rigaku NEX DE用 強度から定量値への変換ツール（長崎大学版）</div>
 <div class="app-desc">
-NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，定量値の算出を自動で行い，ボタンを押すことで結果をExcelファイルとしてダウンロードできます（ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください）。
+NEX DEから出力したCSVファイルをアップロードすると，強度データ（cps/μA）の抽出，ドリフト補正，定量値の算出（ppm）を自動で行い，ボタンを押すことで結果をExcelファイルとしてダウンロードできます（ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください）。
 </div>
 """, unsafe_allow_html=True)
 # =========================
