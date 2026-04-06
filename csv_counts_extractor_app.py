@@ -26,7 +26,7 @@ st.markdown("""
 <style>
 /* 全体の余白 */
 .block-container {
-    padding-top: 2rem;
+    padding-top: 4rem;
     padding-bottom: 2rem;
 }
 
@@ -85,16 +85,17 @@ st.markdown("""
 
 /* カスタムタイトル */
 .app-title {
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: 600;
-    line-height: 1.3;
-    margin: 0.5rem 0 0.2rem 0;
+    line-height: 1.35;
+    margin: 0 0 0.25rem 0;
+    word-break: break-word;
 }
 
 .app-subtitle {
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: #7b8190;
-    margin-bottom: 1.2rem;
+    margin-bottom: 0.8rem;
 }
 </style>
 """, unsafe_allow_html=True)
