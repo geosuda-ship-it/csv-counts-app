@@ -11,13 +11,14 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("NEX DE 強度→定量値変換アプリ（長崎大ver1）")
-st.write(
-    "NEX DEから出力したCSVファイルをアップロードすると，"
-    "強度データの抽出，ドリフト補正，定量値の算出を自動で行い，"
-    "ボタンを押すことで結果をExcelファイルとしてダウンロードできます。"
-)
-st.write("注意）ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください。")
+st.markdown("""
+<div class="app-title">Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — Nagasaki University Edition</div>
+<div class="app-subtitle">Rigaku NEX DE用 強度から定量値への変換ツール（長崎大学版）</div>
+<div class="app-desc">
+NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，定量値の算出を自動で行い，ボタンを押すことで結果をExcelファイルとしてダウンロードできます。<br><br>
+<strong>注意）</strong>ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください。
+</div>
+""", unsafe_allow_html=True)
 
 # =========================
 # 1. QC-2 基準強度（cps/μA）
