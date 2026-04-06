@@ -94,7 +94,7 @@ st.markdown("""
 
 .app-subtitle {
     font-size: 0.95rem;
-    color: #7b8190;
+    color: #111827;
     margin-bottom: 0.8rem;
 }
 </style>
