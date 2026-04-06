@@ -6,10 +6,41 @@ import streamlit as st
 from openpyxl.utils import get_column_letter
 
 st.set_page_config(
-    page_title="NEX DE 強度→定量値変換アプリ（長崎大ver1）",
+    page_title="Rigaku NEX DE用 強度から定量値への変換ツール（長崎大学版）",
     page_icon="🧪",
     layout="wide"
 )
+
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 3rem;
+    padding-bottom: 2rem;
+}
+
+.app-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 0.35rem 0;
+    color: #2f3342;
+}
+
+.app-subtitle {
+    font-size: 1.15rem;
+    color: #111827;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+}
+
+.app-desc {
+    font-size: 1rem;
+    color: #111827;
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <div class="app-title">Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — Nagasaki University Edition</div>
@@ -18,7 +49,6 @@ st.markdown("""
 NEX DEから出力したCSVファイルをアップロードすると，強度データの抽出，ドリフト補正，定量値の算出を自動で行い，ボタンを押すことで結果をExcelファイルとしてダウンロードできます（ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください）。
 </div>
 """, unsafe_allow_html=True)
-
 # =========================
 # 1. QC-2 基準強度（cps/μA）
 # =========================
