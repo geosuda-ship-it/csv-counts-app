@@ -295,9 +295,20 @@ def apply_drift_and_quantification(df):
 
 
 def to_excel_bytes(df):
+    # ★ ここで確実に並び替え
+    df = df.copy()
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
+    df = df.sort_values(
+        ["Date", "Sample", "Method"],
+        ascending=[False, True, True],
+        na_position="last"
+    ).reset_index(drop=True)
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="quantified_results")
+
     output.seek(0)
     return output.getvalue()
 
