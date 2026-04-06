@@ -302,6 +302,28 @@ def apply_drift_and_quantification(df):
     return df_result, drift_factors
 
 
+def make_display_df(df):
+    df_display = df.copy()
+
+    ppm_cols = [
+        "K ppm", "Ca ppm", "Mn ppm", "Fe ppm", "Zn ppm",
+        "Rb ppm", "Sr ppm", "Y ppm", "Zr ppm", "Nb ppm"
+    ]
+
+    for col in ppm_cols:
+        if col in df_display.columns:
+            df_display[col] = df_display[col].map(
+                lambda x: "" if pd.isna(x) else f"{x:.2f}"
+            )
+
+    if "Date" in df_display.columns:
+        df_display["Date"] = pd.to_datetime(
+            df_display["Date"], errors="coerce"
+        ).dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    return df_display
+
+
 def to_excel_bytes(df):
     df_export = df.copy()
 
@@ -338,7 +360,7 @@ def to_excel_bytes(df):
                 for row in range(2, len(df_export) + 2):
                     ws.cell(row=row, column=col_idx).number_format = "0.00"
 
-        # 列幅を少し調整
+        # 列幅調整
         for i, col_name in enumerate(df_export.columns, start=1):
             if col_name == "Date":
                 ws.column_dimensions[get_column_letter(i)].width = 22
@@ -415,6 +437,7 @@ if prompt:
 
             with st.chat_message("assistant"):
                 st.write(reply)
+                st.dataframe(make_display_df(df_result), use_container_width=True)
 
             st.session_state.messages.append({"role": "assistant", "content": reply})
 
@@ -497,7 +520,7 @@ if prompt:
         else:
             with st.chat_message("assistant"):
                 st.write("現在の定量結果を表示します。")
-                st.dataframe(st.session_state.df_result, use_container_width=True)
+                st.dataframe(make_display_df(st.session_state.df_result), use_container_width=True)
 
             st.session_state.messages.append(
                 {"role": "assistant", "content": "定量結果を表示しました。"}
@@ -516,7 +539,7 @@ if prompt:
 
 if st.session_state.df_result is not None:
     st.subheader("定量結果")
-    st.dataframe(st.session_state.df_result, use_container_width=True)
+    st.dataframe(make_display_df(st.session_state.df_result), use_container_width=True)
 
     if uploaded is not None:
         base_name = uploaded.name.rsplit(".", 1)[0]
