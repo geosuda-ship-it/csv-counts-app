@@ -88,8 +88,7 @@ st.markdown("""
     font-size: 1.6rem;
     font-weight: 600;
     line-height: 1.3;
-    margin-top: 0;   /* ←これ重要 */
-    margin-bottom: 0.2rem;
+    margin: 0.5rem 0 0.2rem 0;
 }
 
 .app-subtitle {
