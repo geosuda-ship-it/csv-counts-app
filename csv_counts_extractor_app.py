@@ -465,7 +465,7 @@ for msg in st.session_state.messages:
         st.write(msg["content"])
 
 prompt = st.chat_input(
-    "例：定量計算して / 補正係数を見せて / 検量線定数を出して / 重なり補正係数を出して"
+    "例：定量計算して / ドリフト補正係数を見せて / 検量線定数を見せて / 重なり補正係数を見せて"
 )
 
 if prompt:
@@ -517,9 +517,9 @@ if prompt:
                 st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    elif ("補正係数" in prompt) or ("drift" in lower_prompt):
+    elif ("ドリフト補正係数" in prompt) or ("drift" in lower_prompt):
         if st.session_state.drift_factors is None:
-            reply = "まだ補正係数がありません。先に「定量計算して」と入力してください。"
+            reply = "まだドリフト補正係数がありません。先に「定量計算して」と入力してください。"
             with st.chat_message("assistant", avatar="⚠️"):
                 st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
@@ -599,9 +599,9 @@ if prompt:
     else:
         reply = (
             "現在対応している指示は，"
-            "「定量計算して」「補正係数を見せて」「結果を見せて」"
-            "「検量線定数を出して」「重なり補正係数を出して」"
-            "「QC-2基準強度を出して」です。"
+            "「定量計算して」「ドリフト補正係数を見せて」「結果を見せて」"
+            "「検量線定数を見せて」「重なり補正係数を見せて」"
+            "「QC-2基準強度を見せて」です。"
         )
         with st.chat_message("assistant", avatar="🧪"):
             st.write(reply)
