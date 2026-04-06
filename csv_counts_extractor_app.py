@@ -425,7 +425,7 @@ for msg in st.session_state.messages:
         st.write(msg["content"])
 
 prompt = st.chat_input(
-    "例：定量計算して / 補正係数を見せて / 検量線定数を出して / 重なり補正係数を出して"
+    "例：定量計算して / ドリフト補正係数を見せて / 検量線定数を見せて / 重なり補正係数を見せて"
 )
 
 if prompt:
@@ -477,7 +477,7 @@ if prompt:
                 st.write(reply)
             st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    elif ("補正係数" in prompt) or ("drift" in lower_prompt):
+    elif ("ドリフト補正係数" in prompt) or ("drift" in lower_prompt):
         if st.session_state.drift_factors is None:
             reply = "まだ補正係数がありません。先に「定量計算して」と入力してください。"
             with st.chat_message("assistant"):
@@ -530,7 +530,7 @@ if prompt:
 
     elif ("qc-2基準強度" in lower_prompt) or ("qc2基準強度" in lower_prompt) or ("基準強度" in prompt):
         with st.chat_message("assistant"):
-            st.write("QC-2 基準強度を表示します。")
+            st.write("基準強度を表示します。")
             qc2_df = pd.DataFrame({
                 "Line": list(reference_qc2.keys()),
                 "Reference intensity (cps/μA)": list(reference_qc2.values()),
@@ -559,9 +559,9 @@ if prompt:
     else:
         reply = (
             "現在対応している指示は，"
-            "「定量計算して」「補正係数を見せて」「結果を見せて」"
-            "「検量線定数を出して」「重なり補正係数を出して」"
-            "「QC-2基準強度を出して」です。"
+            "「定量計算して」「ドリフト補正係数を見せて」「結果を見せて」"
+            "「検量線定数を見せて」「重なり補正係数を見せて」"
+            "「基準強度を見せて」です。"
         )
         with st.chat_message("assistant"):
             st.write(reply)
