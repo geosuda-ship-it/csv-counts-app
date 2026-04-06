@@ -282,7 +282,10 @@ def apply_drift_and_quantification(df):
         "Zr": "Zr ppm",
         "Nb": "Nb ppm",
     })
-
+    
+# ← ここに追加
+ppm_cols = [...]
+df_result[ppm_cols] = df_result[ppm_cols].round(2)
     df_result["Date"] = pd.to_datetime(df_result["Date"], errors="coerce")
 
     # Date のみで新しい順
