@@ -38,6 +38,7 @@ target_cols = list(reference_qc2.keys())
 
 # =========================
 # 2. 検量線定数
+# ※ Zn も Ag コンプトン内標準化する前提
 # =========================
 B = {
     "K": 9312.59,
@@ -180,7 +181,6 @@ def extract_cps_blocks(rows):
         numeric_df[col] = pd.to_numeric(numeric_df[col], errors="coerce")
 
     df = pd.concat([df.iloc[:, :3].copy(), numeric_df], axis=1)
-
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
     return df
@@ -285,9 +285,10 @@ def apply_drift_and_quantification(df):
 
     df_result["Date"] = pd.to_datetime(df_result["Date"], errors="coerce")
 
+    # Date のみで新しい順
     df_result = df_result.sort_values(
-        ["Date", "Sample", "Method"],
-        ascending=[False, True, True],
+        "Date",
+        ascending=False,
         na_position="last"
     ).reset_index(drop=True)
 
@@ -295,15 +296,18 @@ def apply_drift_and_quantification(df):
 
 
 def to_excel_bytes(df):
-    # ★ ここで確実に並び替え
     df = df.copy()
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
+    # Excel 出力直前にも Date のみで新しい順に固定
     df = df.sort_values(
-        ["Date", "Sample", "Method"],
-        ascending=[False, True, True],
+        "Date",
+        ascending=False,
         na_position="last"
     ).reset_index(drop=True)
+
+    # Excel 側で順序が分かりやすいよう文字列化
+    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -372,7 +376,7 @@ if prompt:
 
             reply = (
                 f"定量計算が完了しました。{len(df_result)} 行の結果を作成しました。"
-                "下に結果表を表示し，Excelもダウンロードできます。"
+                " 下に結果表を表示し，Excelもダウンロードできます。"
             )
 
             with st.chat_message("assistant"):
