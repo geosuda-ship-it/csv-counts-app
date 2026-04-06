@@ -568,8 +568,6 @@ if prompt:
         st.session_state.messages.append({"role": "assistant", "content": reply})
 
 if st.session_state.df_result is not None:
-    st.subheader("定量結果")
-    st.dataframe(make_display_df(st.session_state.df_result), use_container_width=True)
 
     if uploaded is not None:
         base_name = uploaded.name.rsplit(".", 1)[0]
