@@ -86,14 +86,10 @@ st.markdown("""
 /* カスタムタイトル */
 .app-title {
     font-size: 1.6rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1.18;
-    padding-top: 0.4rem;
-    padding-bottom: 0.4rem;
-    margin-top: 0.2rem;
-    margin-bottom: 0.6rem;
-    color: #2f3342;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 0;   /* ←これ重要 */
+    margin-bottom: 0.2rem;
 }
 
 .app-subtitle {
