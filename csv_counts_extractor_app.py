@@ -4,7 +4,11 @@ from io import StringIO, BytesIO
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="NEX DE 強度→定量値変換アプリ（長崎大ver1）", page_icon="🧪", layout="wide")
+st.set_page_config(
+    page_title="NEX DE 強度→定量値変換アプリ（長崎大ver1）",
+    page_icon="🧪",
+    layout="wide"
+)
 
 st.title("NEX DE 強度→定量値変換アプリ（長崎大ver1）")
 st.write(
@@ -12,9 +16,7 @@ st.write(
     "強度データの抽出，ドリフト補正，定量値の算出を自動で行い，"
     "ボタンを押すことで結果をExcelファイルとしてダウンロードできます。"
 )
-st.write(
-    "注意）ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください。"
-)
+st.write("注意）ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください。")
 
 # =========================
 # 1. QC-2 基準強度（cps/μA）
@@ -63,6 +65,9 @@ C = {
     "Nb": -31.1933,
 }
 
+# =========================
+# 3. 重なり補正係数
+# =========================
 BG14 = -0.113036
 BG15 = -0.121299
 BG16 = -0.161034
@@ -178,15 +183,6 @@ def extract_cps_blocks(rows):
 
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
-    order = {
-        "obart_prec2_air": 0,
-        "obart_stand2_air": 1,
-        "obart_quick2_air": 2,
-    }
-
-    df["sort_key"] = df["Method"].map(order).fillna(999)
-    df = df.sort_values(["sort_key", "Sample"], kind="stable").drop(columns="sort_key")
-
     return df
 
 
@@ -236,12 +232,14 @@ def apply_drift_and_quantification(df):
     if ag_col not in df_corrected.columns:
         raise ValueError(f"Ag 内標準列が見つかりません: {ag_col}")
 
-    # K〜Zn
+    # K〜Fe
     df_corrected["K"] = B["K"] * df_corrected["Mid-Z_K-Kα"] + C["K"]
     df_corrected["Ca"] = B["Ca"] * df_corrected["Mid-Z_Ca-Kβ1"] + C["Ca"]
     df_corrected["Mn"] = B["Mn"] * df_corrected["Mid-Z_Mn-Kα"] + C["Mn"]
     df_corrected["Fe"] = B["Fe"] * df_corrected["Mid-Z_Fe-Kβ1"] + C["Fe"]
-    df_corrected["Zn"] = B["Zn"] * df_corrected["High-Z_Zn-Kα"] + C["Zn"]
+
+    # Zn も Ag コンプトン内標準化
+    df_corrected["Zn"] = B["Zn"] * (df_corrected["High-Z_Zn-Kα"] / df_corrected[ag_col]) + C["Zn"]
 
     # Rb, Sr
     df_corrected["Rb"] = B["Rb"] * (df_corrected["High-Z_Rb-Kα"] / df_corrected[ag_col]) + C["Rb"]
@@ -285,8 +283,13 @@ def apply_drift_and_quantification(df):
         "Nb": "Nb ppm",
     })
 
-    # ★ ここを追加（新しい日付が上）
-    df_result = df_result.sort_values("Date", ascending=False)
+    df_result["Date"] = pd.to_datetime(df_result["Date"], errors="coerce")
+
+    df_result = df_result.sort_values(
+        ["Date", "Sample", "Method"],
+        ascending=[False, True, True],
+        na_position="last"
+    ).reset_index(drop=True)
 
     return df_result, drift_factors
 
@@ -300,7 +303,7 @@ def to_excel_bytes(df):
 
 
 # =========================
-# 3. 対話UI
+# 4. 対話UI
 # =========================
 uploaded = st.file_uploader("NEX DEから出力したCSVファイルをアップロード", type=["csv"])
 
@@ -320,7 +323,9 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-prompt = st.chat_input("例：定量計算して / 補正係数を見せて")
+prompt = st.chat_input(
+    "例：定量計算して / 補正係数を見せて / 検量線定数を出して / 重なり補正係数を出して"
+)
 
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -328,9 +333,16 @@ if prompt:
     with st.chat_message("user"):
         st.write(prompt)
 
-    lower_prompt = prompt.lower()
+    lower_prompt = prompt.lower().strip()
 
-    if uploaded is None:
+    if uploaded is None and (
+        ("定量" in prompt) or
+        ("計算" in prompt) or
+        ("結果" in prompt) or
+        ("表" in prompt) or
+        ("補正係数" in prompt) or
+        ("drift" in lower_prompt)
+    ):
         reply = "まず，NEX DEから出力したCSVファイルをアップロードしてください。"
         with st.chat_message("assistant"):
             st.write(reply)
@@ -372,12 +384,10 @@ if prompt:
         else:
             with st.chat_message("assistant"):
                 st.write("ドリフト補正係数を表示します。")
-                drift_df = pd.DataFrame(
-                    {
-                        "Line": list(st.session_state.drift_factors.keys()),
-                        "Drift factor": list(st.session_state.drift_factors.values()),
-                    }
-                )
+                drift_df = pd.DataFrame({
+                    "Line": list(st.session_state.drift_factors.keys()),
+                    "Drift factor": list(st.session_state.drift_factors.values()),
+                })
                 st.dataframe(drift_df, use_container_width=True)
 
             st.session_state.messages.append(
@@ -390,7 +400,7 @@ if prompt:
             calib_df = pd.DataFrame({
                 "Element": list(B.keys()),
                 "B": [B[k] for k in B.keys()],
-                "C": [C[k] for k in C.keys()],
+                "C": [C[k] for k in B.keys()],
             })
             st.dataframe(calib_df, use_container_width=True)
 
@@ -416,7 +426,7 @@ if prompt:
             {"role": "assistant", "content": "重なり補正係数を表示しました。"}
         )
 
-    elif ("qc-2基準強度" in prompt.lower()) or ("qc2基準強度" in prompt.lower()) or ("基準強度" in prompt):
+    elif ("qc-2基準強度" in lower_prompt) or ("qc2基準強度" in lower_prompt) or ("基準強度" in prompt):
         with st.chat_message("assistant"):
             st.write("QC-2 基準強度を表示します。")
             qc2_df = pd.DataFrame({
@@ -428,7 +438,7 @@ if prompt:
         st.session_state.messages.append(
             {"role": "assistant", "content": "QC-2 基準強度を表示しました。"}
         )
-    
+
     elif ("結果" in prompt) or ("表" in prompt):
         if st.session_state.df_result is None:
             reply = "まだ結果がありません。先に「定量計算して」と入力してください。"
@@ -445,7 +455,12 @@ if prompt:
             )
 
     else:
-        reply = "現在対応している指示は「定量計算して」「補正係数を見せて」「結果を見せて」です。"
+        reply = (
+            "現在対応している指示は，"
+            "「定量計算して」「補正係数を見せて」「結果を見せて」"
+            "「検量線定数を出して」「重なり補正係数を出して」"
+            "「QC-2基準強度を出して」です。"
+        )
         with st.chat_message("assistant"):
             st.write(reply)
         st.session_state.messages.append({"role": "assistant", "content": reply})
