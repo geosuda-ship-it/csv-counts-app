@@ -23,15 +23,19 @@ st.markdown(
     <style>
     .block-container {
         max-width: 1180px;
-        padding-top: 2.2rem;
+        padding-top: 3.2rem;
         padding-bottom: 3rem;
     }
     .app-title {
         color: #1f2937;
-        font-size: 1.8rem;
+        font-size: clamp(1.35rem, 2.4vw, 1.8rem);
         font-weight: 700;
-        line-height: 1.35;
+        line-height: 1.5;
+        padding: 0.25rem 0 0.35rem 0;
         margin-bottom: 0.3rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        overflow: visible;
     }
     .app-subtitle {
         color: #475569;
