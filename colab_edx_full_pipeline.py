@@ -417,9 +417,6 @@ def create_workbook(coefficient_rows, corrected_rows, missing_dates) -> Workbook
             "sample",
             "測定モード",
             "試料測定日時",
-            "測定日",
-            "QC番号",
-            "QC測定日時",
             *[f"{element}_ppm" for element in QUANT_ELEMENTS],
         ]
     )
@@ -429,18 +426,14 @@ def create_workbook(coefficient_rows, corrected_rows, missing_dates) -> Workbook
                 row["sample"]["sample"],
                 row["sample"]["mode"],
                 row["sample"]["measured_at"],
-                row["date"],
-                row["qc_number"],
-                row["qc"]["measured_at"],
                 *[row["quantitative"][element] for element in QUANT_ELEMENTS],
             ]
         )
     style_sheet(
         quantitative_sheet,
-        datetime_columns=("C", "F"),
-        date_columns=("D",),
+        datetime_columns=("C",),
     )
-    for row in quantitative_sheet.iter_rows(min_row=2, min_col=7, max_col=16):
+    for row in quantitative_sheet.iter_rows(min_row=2, min_col=4, max_col=13):
         for cell in row:
             cell.number_format = "0.000"
 
