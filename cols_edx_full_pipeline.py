@@ -56,9 +56,15 @@ OVERLAP_CORRECTION = {
     "Nb": ("Y", -0.002482),
 }
 
-QC_MODE = core.QC_MODE
+QC_MODE = "cols_prec1_air"
 extract_measurements = core.extract_measurements
-is_qc = core.is_qc
+
+
+def is_qc(measurement: dict) -> bool:
+    return (
+        core.normalize_qc_name(measurement["sample"]) == "QC2"
+        and measurement["mode"].strip().lower() == QC_MODE.lower()
+    )
 
 
 @contextmanager
@@ -67,11 +73,13 @@ def cols_configuration():
     original_b = core.CALIBRATION_B
     original_c = core.CALIBRATION_C
     original_overlap = core.OVERLAP_CORRECTION
+    original_qc_mode = core.QC_MODE
 
     core.REFERENCE_INTENSITY = REFERENCE_INTENSITY
     core.CALIBRATION_B = CALIBRATION_B
     core.CALIBRATION_C = CALIBRATION_C
     core.OVERLAP_CORRECTION = OVERLAP_CORRECTION
+    core.QC_MODE = QC_MODE
     try:
         yield
     finally:
@@ -79,6 +87,7 @@ def cols_configuration():
         core.CALIBRATION_B = original_b
         core.CALIBRATION_C = original_c
         core.OVERLAP_CORRECTION = original_overlap
+        core.QC_MODE = original_qc_mode
 
 
 def calculate_all(measurements):
