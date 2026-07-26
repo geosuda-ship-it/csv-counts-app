@@ -1,582 +1,239 @@
-import csv
-from io import StringIO, BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from openpyxl.utils import get_column_letter
+
+from cols_edx_full_pipeline import (
+    QC_MODE,
+    calculate_all,
+    convert_csv,
+    extract_measurements,
+    is_qc,
+)
+
 
 st.set_page_config(
-    page_title="Rigaku NEX DE用 強度から定量値への変換ツール（明治大学黒耀石研究センター版）",
+    page_title="Rigaku NEX DE 強度・定量変換ツール（COLS版）",
     page_icon="🧪",
-    layout="wide"
+    layout="wide",
 )
 
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 3rem;
-    padding-bottom: 2rem;
-}
+st.markdown(
+    """
+    <style>
+    .block-container {
+        max-width: 1180px;
+        padding-top: 2.2rem;
+        padding-bottom: 3rem;
+    }
+    .app-title {
+        color: #1f2937;
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1.35;
+        margin-bottom: 0.3rem;
+    }
+    .app-subtitle {
+        color: #475569;
+        font-size: 1.05rem;
+        margin-bottom: 1.5rem;
+    }
+    .step-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1rem 1.2rem;
+        margin: 0.5rem 0 1.2rem 0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-.app-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    line-height: 1.35;
-    margin: 0 0 0.35rem 0;
-    color: #2f3342;
-}
+st.markdown(
+    """
+    <div class="app-title">
+    Rigaku NEX DE用 強度から定量値への変換ツール
+    （明治大学黒耀石研究センター版）
+    </div>
+    <div class="app-subtitle">
+    NEX DEのCSVから、ドリフト補正・Ag内標準補正・定量・重なり補正を
+    一括実行します。
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-.app-subtitle {
-    font-size: 1.15rem;
-    color: #111827;
-    line-height: 1.5;
-    margin-bottom: 0.75rem;
-}
+with st.expander("計算内容", expanded=False):
+    st.markdown(
+        """
+        - `QC-2`または`QC2`、測定モード`obart_prec3_air`をQCとして認識
+        - QCと試料を測定日ごとに分離し、日をまたいで補正しない
+        - 同日のQC測定回数分だけ、各試料の補正結果と定量値を算出
+        - K、Ca、Mn、Fe、Zn：ドリフト補正後強度を使用
+        - Rb、Sr、Y、Zr、Nb：ドリフト補正後Ag強度で内標準化
+        - YはRb、ZrはSr、NbはYによる重なり補正を適用
+        - 基準強度・検量線・重なり補正にはCOLS版の定数を使用
+        """
+    )
 
-.app-desc {
-    font-size: 1rem;
-    color: #111827;
-    line-height: 1.7;
-    margin-bottom: 1.25rem;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class="step-card">
+    <strong>1. CSVを選択</strong><br>
+    NEX DEから出力したCSVを選択してください。QC測定を含む必要があります。
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-st.markdown("""
-<div class="app-title">Intensity-to-Quantitative Data Conversion Tool for the Rigaku NEX DE — COLS Edition</div>
-<div class="app-subtitle">Rigaku NEX DE用 強度から定量値への変換ツール（明治大学黒耀石研究センター版）</div>
-<div class="app-desc">
-NEX DEから出力したCSVファイルをアップロードします（ドリフト補正のため「QC-2」のデータはCSVファイルに必ず含めてください）。次にプロンプトに「定量計算して」と入力してください。すると，定量値が表示されます。定量値はExcelファイルとしてダウンロードすることもできます。さらに，プロンプトによる指示によってドリフト補正係数，検量線定数，重なり補正係数を確認することもできます。
-</div>
-""", unsafe_allow_html=True)
-# =========================
-# 1. QC-2 基準強度（cps/μA）
-# =========================
-reference_qc2 = {
-    "Mid-Z_K-Kα": 4.16538,
-    "Mid-Z_Ca-Kβ1": 0.14892,
-    "Mid-Z_Mn-Kα": 0.90216,
-    "Mid-Z_Fe-Kβ1": 3.16091,
-    "High-Z_Zn-Kα": 0.08522,
-    "High-Z_Rb-Kα": 1.16831,
-    "High-Z_Sr-Kα": 0.37845,
-    "High-Z_Y-Kα": 0.50381,
-    "High-Z_Zr-Kα": 0.88033,
-    "High-Z_Nb-Kα": 0.53323,
-    "High-Z_Ag-Kα": 10.46824,
-}
-target_cols = list(reference_qc2.keys())
-
-# =========================
-# 2. 検量線定数
-# ※ Zn も Ag コンプトン内標準化する前提
-# =========================
-B = {
-    "K": 9538.77,
-    "Ca": 31518.00,
-    "Mn": 746.09,
-    "Fe": 4041.97,
-    "Zn": 10015.90,
-    "Rb": 1831.54,
-    "Sr": 1507.65,
-    "Y": 1215.25,
-    "Zr": 1048.10,
-    "Nb": 1057.98,
-}
-
-C = {
-    "K": -1177.73,
-    "Ca": -267.40,
-    "Mn": -318.16,
-    "Fe": -5373.50,
-    "Zn": -41.0826,
-    "Rb": -11.6155,
-    "Sr": -9.5885,
-    "Y": -9.9429,
-    "Zr": -11.8799,
-    "Nb": -33.9491,
-}
-
-# =========================
-# 3. 重なり補正係数
-# =========================
-BG14 = -0.118793
-BG15 = -0.121227
-BG16 = -0.002482
+uploaded = st.file_uploader(
+    "NEX DEのCSVファイル",
+    type=["csv"],
+    help="1回の処理につき1つのCSVを選択します。",
+)
 
 
-def read_uploaded_csv(uploaded_file):
-    raw = uploaded_file.getvalue()
-    encodings = ["cp932", "utf-8-sig", "utf-8"]
-    last_error = None
-
-    for enc in encodings:
-        try:
-            text = raw.decode(enc, errors="replace")
-            return list(csv.reader(StringIO(text)))
-        except Exception as e:
-            last_error = e
-
-    raise ValueError(f"CSVを読み込めませんでした: {last_error}")
+def clear_previous_result():
+    st.session_state.pop("cols_result_bytes", None)
+    st.session_state.pop("cols_result_name", None)
 
 
-def clean_numeric(x):
-    if pd.isna(x):
-        return None
-    if isinstance(x, (int, float)):
-        return x
+if uploaded is None:
+    clear_previous_result()
+    st.info("CSVファイルを選択すると、測定内容を確認できます。")
+    st.stop()
 
-    s = str(x).strip()
-    if s == "":
-        return None
+file_bytes = uploaded.getvalue()
 
-    parts = s.split()
-    if len(parts) >= 2:
-        try:
-            return float(parts[-1])
-        except Exception:
-            pass
+if st.session_state.get("cols_uploaded_name") != uploaded.name:
+    clear_previous_result()
+    st.session_state.cols_uploaded_name = uploaded.name
 
+try:
+    measurements = extract_measurements(file_bytes)
+    qc_measurements = [item for item in measurements if is_qc(item)]
+    sample_measurements = [item for item in measurements if not is_qc(item)]
+
+    qc_by_date = {}
+    sample_by_date = {}
+    for item in qc_measurements:
+        measurement_date = item["measured_at"].date()
+        qc_by_date[measurement_date] = qc_by_date.get(measurement_date, 0) + 1
+    for item in sample_measurements:
+        measurement_date = item["measured_at"].date()
+        sample_by_date[measurement_date] = (
+            sample_by_date.get(measurement_date, 0) + 1
+        )
+
+    summary_dates = sorted(set(qc_by_date) | set(sample_by_date))
+    summary = pd.DataFrame(
+        [
+            {
+                "測定日": measurement_date.isoformat(),
+                "QC回数": qc_by_date.get(measurement_date, 0),
+                "試料測定数": sample_by_date.get(measurement_date, 0),
+                "出力予定行数": (
+                    qc_by_date.get(measurement_date, 0)
+                    * sample_by_date.get(measurement_date, 0)
+                ),
+            }
+            for measurement_date in summary_dates
+        ]
+    )
+except Exception as exc:
+    clear_previous_result()
+    st.error(f"CSVを確認できませんでした：{exc}")
+    st.stop()
+
+st.success(f"`{uploaded.name}`を読み込みました。")
+
+metric1, metric2, metric3, metric4 = st.columns(4)
+metric1.metric("測定日数", len(summary_dates))
+metric2.metric("QC測定数", len(qc_measurements))
+metric3.metric("試料測定数", len(sample_measurements))
+metric4.metric(
+    "出力予定行数",
+    int(summary["出力予定行数"].sum()) if not summary.empty else 0,
+)
+st.dataframe(summary, use_container_width=True, hide_index=True)
+
+missing_dates = [
+    measurement_date
+    for measurement_date in summary_dates
+    if sample_by_date.get(measurement_date, 0) > 0
+    and qc_by_date.get(measurement_date, 0) == 0
+]
+if missing_dates:
+    st.warning(
+        "次の測定日には同日のQCがないため、試料を計算できません："
+        + "、".join(item.isoformat() for item in missing_dates)
+    )
+
+if not qc_measurements:
+    st.error(
+        f"QC-2またはQC2、測定モード`{QC_MODE}`のQC測定がありません。"
+    )
+    st.stop()
+
+st.markdown(
+    """
+    <div class="step-card">
+    <strong>2. 一括計算</strong><br>
+    内容を確認して、下のボタンを押してください。
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if st.button("計算を実行", type="primary", use_container_width=True):
     try:
-        return float(s)
-    except Exception:
-        return None
+        with st.spinner("COLS版の定数で計算しています…"):
+            _, corrected_rows, skipped_dates = calculate_all(measurements)
+            result_bytes = convert_csv(file_bytes)
 
+        output_name = (
+            f"{Path(uploaded.name).stem}_COLS_補正後強度_定量値.xlsx"
+        )
+        st.session_state.cols_result_bytes = result_bytes
+        st.session_state.cols_result_name = output_name
+        st.session_state.cols_result_count = len(corrected_rows)
+        st.session_state.cols_skipped_dates = skipped_dates
+    except Exception as exc:
+        clear_previous_result()
+        st.error(f"計算中にエラーが発生しました：{exc}")
 
-def extract_cps_blocks(rows):
-    cps_indices = []
-    for i, row in enumerate(rows):
-        normalized = [str(x).strip().lower() for x in row]
-        if "cps/μa" in normalized:
-            cps_indices.append(i)
-
-    if not cps_indices:
-        raise ValueError("cps/μA 行が見つかりません")
-
-    all_data = []
-    columns = None
-
-    for idx in cps_indices:
-        if idx < 2:
-            continue
-
-        header1 = rows[idx - 2]
-        header2 = rows[idx - 1]
-
-        if columns is None:
-            new_cols = []
-            seen = {}
-
-            for h1, h2 in zip(header1[3:], header2[3:]):
-                h1 = str(h1).strip()
-                h2 = str(h2).strip()
-
-                if h1 and h2:
-                    name = f"{h1}_{h2}"
-                elif h2:
-                    name = h2
-                else:
-                    name = h1
-
-                if name in seen:
-                    seen[name] += 1
-                    name = f"{name}_{seen[name]}"
-                else:
-                    seen[name] = 1
-
-                new_cols.append(name)
-
-            columns = ["Sample", "Method", "Date"] + new_cols
-
-        for row in rows[idx + 1:]:
-            if len(row) == 0 or all(str(x).strip() == "" for x in row):
-                break
-
-            row = list(row)
-
-            if len(row) < len(columns):
-                row = row + [""] * (len(columns) - len(row))
-            elif len(row) > len(columns):
-                row = row[:len(columns)]
-
-            all_data.append(row)
-
-    if not all_data:
-        raise ValueError("cps/μA データが見つかりません")
-
-    df = pd.DataFrame(all_data, columns=columns)
-
-    numeric_df = df.iloc[:, 3:].copy()
-    for col in numeric_df.columns:
-        numeric_df[col] = numeric_df[col].map(clean_numeric)
-        numeric_df[col] = pd.to_numeric(numeric_df[col], errors="coerce")
-
-    df = pd.concat([df.iloc[:, :3].copy(), numeric_df], axis=1)
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-
-    return df
-
-
-def calculate_drift_factors(df):
-    sample_norm = (
-        df["Sample"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-        .str.replace("-", "", regex=False)
-        .str.replace(" ", "", regex=False)
+if st.session_state.get("cols_result_bytes") is not None:
+    st.success(
+        f"計算が完了しました。"
+        f"{st.session_state.get('cols_result_count', 0)}行を出力します。"
     )
 
-    qc2_rows = df[sample_norm == "QC2"]
+    skipped_dates = st.session_state.get("cols_skipped_dates", [])
+    if skipped_dates:
+        st.warning(
+            "同日のQCがなく除外した測定日："
+            + "、".join(item.isoformat() for item in skipped_dates)
+        )
 
-    if qc2_rows.empty:
-        raise ValueError("QC-2 または QC2 の行が見つかりません")
-
-    qc2_measured = qc2_rows.iloc[0]
-
-    drift_factors = {}
-    for col in target_cols:
-        if col not in df.columns:
-            raise ValueError(f"必要な列が見つかりません: {col}")
-
-        measured_val = qc2_measured[col]
-        ref_val = reference_qc2[col]
-
-        if pd.isna(measured_val) or measured_val == 0:
-            drift_factors[col] = None
-        else:
-            drift_factors[col] = ref_val / measured_val
-
-    return drift_factors
-
-
-def apply_drift_and_quantification(df):
-    drift_factors = calculate_drift_factors(df)
-
-    df_corrected = df.copy()
-    for col in target_cols:
-        factor = drift_factors[col]
-        if factor is not None:
-            df_corrected[col] = df_corrected[col] * factor
-
-    ag_col = "High-Z_Ag-Kα"
-    if ag_col not in df_corrected.columns:
-        raise ValueError(f"Ag 内標準列が見つかりません: {ag_col}")
-
-    # K〜Fe
-    df_corrected["K"] = B["K"] * df_corrected["Mid-Z_K-Kα"] + C["K"]
-    df_corrected["Ca"] = B["Ca"] * df_corrected["Mid-Z_Ca-Kβ1"] + C["Ca"]
-    df_corrected["Mn"] = B["Mn"] * df_corrected["Mid-Z_Mn-Kα"] + C["Mn"]
-    df_corrected["Fe"] = B["Fe"] * df_corrected["Mid-Z_Fe-Kβ1"] + C["Fe"]
-
-    # Zn も Ag コンプトン内標準化
-    df_corrected["Zn"] = B["Zn"] * (df_corrected["High-Z_Zn-Kα"] / df_corrected[ag_col]) + C["Zn"]
-
-    # Rb, Sr
-    df_corrected["Rb"] = B["Rb"] * (df_corrected["High-Z_Rb-Kα"] / df_corrected[ag_col]) + C["Rb"]
-    df_corrected["Sr"] = B["Sr"] * (df_corrected["High-Z_Sr-Kα"] / df_corrected[ag_col]) + C["Sr"]
-
-    # Y, Zr, Nb
-    df_corrected["Y"] = (
-        B["Y"] * (df_corrected["High-Z_Y-Kα"] / df_corrected[ag_col])
-        + C["Y"]
-        + df_corrected["Rb"] * BG14
+    st.markdown(
+        """
+        <div class="step-card">
+        <strong>3. Excelを保存</strong><br>
+        QC補正係数、補正後強度、定量値、計算定数の4シートを含みます。
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    df_corrected["Zr"] = (
-        B["Zr"] * (df_corrected["High-Z_Zr-Kα"] / df_corrected[ag_col])
-        + C["Zr"]
-        + df_corrected["Sr"] * BG15
-    )
-    df_corrected["Nb"] = (
-        B["Nb"] * (df_corrected["High-Z_Nb-Kα"] / df_corrected[ag_col])
-        + C["Nb"]
-        + df_corrected["Y"] * BG16
-    )
-
-    result_cols = [
-        "Sample", "Method", "Date",
-        "K", "Ca", "Mn", "Fe", "Zn",
-        "Rb", "Sr", "Y", "Zr", "Nb",
-    ]
-
-    df_result = df_corrected[result_cols].copy()
-
-    df_result = df_result.rename(columns={
-        "K": "K ppm",
-        "Ca": "Ca ppm",
-        "Mn": "Mn ppm",
-        "Fe": "Fe ppm",
-        "Zn": "Zn ppm",
-        "Rb": "Rb ppm",
-        "Sr": "Sr ppm",
-        "Y": "Y ppm",
-        "Zr": "Zr ppm",
-        "Nb": "Nb ppm",
-    })
-
-    ppm_cols = [
-        "K ppm", "Ca ppm", "Mn ppm", "Fe ppm", "Zn ppm",
-        "Rb ppm", "Sr ppm", "Y ppm", "Zr ppm", "Nb ppm"
-    ]
-
-    df_result[ppm_cols] = df_result[ppm_cols].round(2)
-    df_result["Date"] = pd.to_datetime(df_result["Date"], errors="coerce")
-
-    # 古い → 新しい
-    df_result = df_result.sort_values(
-        "Date",
-        ascending=True,
-        na_position="last"
-    ).reset_index(drop=True)
-
-    return df_result, drift_factors
-
-
-def make_display_df(df):
-    df_display = df.copy()
-
-    ppm_cols = [
-        "K ppm", "Ca ppm", "Mn ppm", "Fe ppm", "Zn ppm",
-        "Rb ppm", "Sr ppm", "Y ppm", "Zr ppm", "Nb ppm"
-    ]
-
-    for col in ppm_cols:
-        if col in df_display.columns:
-            df_display[col] = df_display[col].map(
-                lambda x: "" if pd.isna(x) else f"{x:.2f}"
-            )
-
-    if "Date" in df_display.columns:
-        df_display["Date"] = pd.to_datetime(
-            df_display["Date"], errors="coerce"
-        ).dt.strftime("%Y-%m-%d %H:%M:%S")
-
-    return df_display
-
-
-def to_excel_bytes(df):
-    df_export = df.copy()
-
-    ppm_cols = [
-        "K ppm", "Ca ppm", "Mn ppm", "Fe ppm", "Zn ppm",
-        "Rb ppm", "Sr ppm", "Y ppm", "Zr ppm", "Nb ppm"
-    ]
-
-    df_export["Date"] = pd.to_datetime(df_export["Date"], errors="coerce")
-
-    # Excel 出力直前にも古い → 新しいで固定
-    df_export = df_export.sort_values(
-        "Date",
-        ascending=True,
-        na_position="last"
-    ).reset_index(drop=True)
-
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_export.to_excel(writer, index=False, sheet_name="quantified_results")
-
-        ws = writer.sheets["quantified_results"]
-
-        # Date列の表示形式
-        if "Date" in df_export.columns:
-            date_col_idx = df_export.columns.get_loc("Date") + 1
-            for row in range(2, len(df_export) + 2):
-                ws.cell(row=row, column=date_col_idx).number_format = "yyyy-mm-dd hh:mm:ss"
-
-        # ppm列は常に小数点以下2桁表示
-        for col_name in ppm_cols:
-            if col_name in df_export.columns:
-                col_idx = df_export.columns.get_loc(col_name) + 1
-                for row in range(2, len(df_export) + 2):
-                    ws.cell(row=row, column=col_idx).number_format = "0.00"
-
-        # 列幅調整
-        for i, col_name in enumerate(df_export.columns, start=1):
-            if col_name == "Date":
-                ws.column_dimensions[get_column_letter(i)].width = 22
-            elif "ppm" in col_name:
-                ws.column_dimensions[get_column_letter(i)].width = 12
-            else:
-                ws.column_dimensions[get_column_letter(i)].width = 18
-
-    output.seek(0)
-    return output.getvalue()
-
-
-# =========================
-# 4. 対話UI
-# =========================
-uploaded = st.file_uploader("NEX DEから出力したCSVファイルをアップロード", type=["csv"])
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "df_result" not in st.session_state:
-    st.session_state.df_result = None
-
-if "excel_bytes" not in st.session_state:
-    st.session_state.excel_bytes = None
-
-if "drift_factors" not in st.session_state:
-    st.session_state.drift_factors = None
-
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
-
-prompt = st.chat_input(
-    "例：定量計算して / ドリフト補正係数を見せて / 検量線定数を見せて / 重なり補正係数を見せて"
-)
-
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
-    with st.chat_message("user"):
-        st.write(prompt)
-
-    lower_prompt = prompt.lower().strip()
-
-    if uploaded is None and (
-        ("定量" in prompt) or
-        ("計算" in prompt) or
-        ("結果" in prompt) or
-        ("表" in prompt) or
-        ("補正係数" in prompt) or
-        ("drift" in lower_prompt)
-    ):
-        reply = "まず，NEX DEから出力したCSVファイルをアップロードしてください。"
-        with st.chat_message("assistant"):
-            st.write(reply)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
-
-    elif ("定量" in prompt) or ("計算" in prompt):
-        try:
-            rows = read_uploaded_csv(uploaded)
-            df_counts = extract_cps_blocks(rows)
-            df_result, drift_factors = apply_drift_and_quantification(df_counts)
-            excel_bytes = to_excel_bytes(df_result)
-
-            st.session_state.df_result = df_result
-            st.session_state.excel_bytes = excel_bytes
-            st.session_state.drift_factors = drift_factors
-
-            reply = (
-                f"定量計算が完了しました。{len(df_result)} 行の結果を作成しました。"
-                " 下に結果表を表示し，Excelもダウンロードできます。"
-            )
-
-            with st.chat_message("assistant"):
-                st.write(reply)
-                st.dataframe(make_display_df(df_result), use_container_width=True)
-
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-
-        except Exception as e:
-            reply = f"処理中にエラーが出ました: {e}"
-            with st.chat_message("assistant"):
-                st.write(reply)
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-
-    elif ("ドリフト補正係数" in prompt) or ("drift" in lower_prompt):
-        if st.session_state.drift_factors is None:
-            reply = "まだ補正係数がありません。先に「定量計算して」と入力してください。"
-            with st.chat_message("assistant"):
-                st.write(reply)
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-        else:
-            with st.chat_message("assistant"):
-                st.write("ドリフト補正係数を表示します。")
-                drift_df = pd.DataFrame({
-                    "Line": list(st.session_state.drift_factors.keys()),
-                    "Drift factor": list(st.session_state.drift_factors.values()),
-                })
-                st.dataframe(drift_df, use_container_width=True)
-
-            st.session_state.messages.append(
-                {"role": "assistant", "content": "ドリフト補正係数を表示しました。"}
-            )
-
-    elif ("検量線定数" in prompt) or ("bとc" in lower_prompt) or ("b c" in lower_prompt):
-        with st.chat_message("assistant"):
-            st.write("検量線定数（B, C）を表示します。")
-            calib_df = pd.DataFrame({
-                "Element": list(B.keys()),
-                "B": [B[k] for k in B.keys()],
-                "C": [C[k] for k in B.keys()],
-            })
-            st.dataframe(calib_df, use_container_width=True)
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": "検量線定数（B, C）を表示しました。"}
-        )
-
-    elif ("重なり補正係数" in prompt) or ("bg14" in lower_prompt) or ("bg15" in lower_prompt) or ("bg16" in lower_prompt):
-        with st.chat_message("assistant"):
-            st.write("重なり補正係数を表示します。")
-            overlap_df = pd.DataFrame({
-                "Coefficient": ["BG14", "BG15", "BG16"],
-                "Value": [BG14, BG15, BG16],
-                "Meaning": [
-                    "Y 補正に使う Rb 項の係数",
-                    "Zr 補正に使う Sr 項の係数",
-                    "Nb 補正に使う Y 項の係数",
-                ],
-            })
-            st.dataframe(overlap_df, use_container_width=True)
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": "重なり補正係数を表示しました。"}
-        )
-
-    elif ("qc-2基準強度" in lower_prompt) or ("qc2基準強度" in lower_prompt) or ("基準強度" in prompt):
-        with st.chat_message("assistant"):
-            st.write("基準強度を表示します。")
-            qc2_df = pd.DataFrame({
-                "Line": list(reference_qc2.keys()),
-                "Reference intensity (cps/μA)": list(reference_qc2.values()),
-            })
-            st.dataframe(qc2_df, use_container_width=True)
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": "基準強度を表示しました。"}
-        )
-
-    elif ("結果" in prompt) or ("表" in prompt):
-        if st.session_state.df_result is None:
-            reply = "まだ結果がありません。先に「定量計算して」と入力してください。"
-            with st.chat_message("assistant"):
-                st.write(reply)
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-        else:
-            with st.chat_message("assistant"):
-                st.write("現在の定量結果を表示します。")
-                st.dataframe(make_display_df(st.session_state.df_result), use_container_width=True)
-
-            st.session_state.messages.append(
-                {"role": "assistant", "content": "定量結果を表示しました。"}
-            )
-
-    else:
-        reply = (
-            "現在対応している指示は，"
-            "「定量計算して」「ドリフト補正係数を見せて」"
-            "「検量線定数を見せて」「重なり補正係数を見せて」"
-            "「基準強度を見せて」です。"
-        )
-        with st.chat_message("assistant"):
-            st.write(reply)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
-
-if st.session_state.df_result is not None:
-
-    if uploaded is not None:
-        base_name = uploaded.name.rsplit(".", 1)[0]
-    else:
-        base_name = "result"
 
     st.download_button(
-        label="Excelをダウンロード",
-        data=st.session_state.excel_bytes,
-        file_name=f"{base_name}_quantified_results.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "最終Excelをダウンロード",
+        data=st.session_state.cols_result_bytes,
+        file_name=st.session_state.cols_result_name,
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        type="primary",
+        use_container_width=True,
     )
