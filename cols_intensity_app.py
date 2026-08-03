@@ -74,8 +74,8 @@ with st.expander("計算内容", expanded=False):
         - `QC-2`または`QC2`、測定モード`cols_prec1_air`をQCとして認識
         - QCと試料を測定日ごとに分離し、日をまたいで補正しない
         - 同日のQC測定回数分だけ、各試料の補正結果と定量値を算出
-        - K、Ca、Mn、Fe、Zn：ドリフト補正後強度を使用
-        - Rb、Sr、Y、Zr、Nb：ドリフト補正後Ag強度で内標準化
+        - K、Ca、Mn、Fe：ドリフト補正後強度を使用
+        - Zn、Rb、Sr、Y、Zr、Nb：ドリフト補正後Ag強度で内標準化
         - YはRb、ZrはSr、NbはYによる重なり補正を適用
         - 基準強度・検量線・重なり補正にはCOLS版の定数を使用
         """
