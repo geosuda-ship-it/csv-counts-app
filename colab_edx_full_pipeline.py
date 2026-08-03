@@ -4,7 +4,7 @@ Google Colab用：EDX CSVから定量値Excelまでを一括作成する。
 処理:
 1. CSVから強度測定値を抽出
 2. 同日のQC-2/QC2（obart_prec3_air）からドリフト補正係数を算出
-3. K～Znはドリフト補正、Rb～NbはさらにAg内標準補正
+3. K～Feはドリフト補正、Zn～NbはさらにAg内標準補正
 4. 検量線定数B・Cから定量値を算出
 5. Y、Zr、Nbに重なり補正を適用
 
@@ -28,8 +28,8 @@ from openpyxl.utils import get_column_letter
 
 ELEMENTS = ("K", "Ca", "Mn", "Fe", "Zn", "Rb", "Sr", "Y", "Zr", "Nb", "Ag")
 QUANT_ELEMENTS = ELEMENTS[:-1]
-DIRECT_ELEMENTS = {"K", "Ca", "Mn", "Fe", "Zn"}
-AG_NORMALIZED_ELEMENTS = {"Rb", "Sr", "Y", "Zr", "Nb"}
+DIRECT_ELEMENTS = {"K", "Ca", "Mn", "Fe"}
+AG_NORMALIZED_ELEMENTS = {"Zn", "Rb", "Sr", "Y", "Zr", "Nb"}
 QC_MODE = "obart_prec3_air"
 
 REFERENCE_INTENSITY = {
@@ -381,7 +381,7 @@ def create_workbook(coefficient_rows, corrected_rows, missing_dates) -> Workbook
             "Ca_ドリフト補正後",
             "Mn_ドリフト補正後",
             "Fe_ドリフト補正後",
-            "Zn_ドリフト補正後",
+            "Zn_Ag内標準後",
             "Rb_Ag内標準後",
             "Sr_Ag内標準後",
             "Y_Ag内標準後",
