@@ -2,7 +2,8 @@
 明治大学黒耀石研究センター版の計算設定。
 
 共通のCSV解析・日別QC処理・Excel出力は
-colab_edx_full_pipeline.pyを利用し、明大専用定数だけを切り替える。
+colab_edx_full_pipeline.pyを利用し、明大専用定数へ切り替える。
+Zn～Nbはドリフト補正後Ag強度で内標準化する。
 """
 
 from contextlib import contextmanager
@@ -57,6 +58,8 @@ OVERLAP_CORRECTION = {
 }
 
 QC_MODE = "cols_prec1_air"
+DIRECT_ELEMENTS = {"K", "Ca", "Mn", "Fe"}
+AG_NORMALIZED_ELEMENTS = {"Zn", "Rb", "Sr", "Y", "Zr", "Nb"}
 extract_measurements = core.extract_measurements
 
 
@@ -74,12 +77,16 @@ def cols_configuration():
     original_c = core.CALIBRATION_C
     original_overlap = core.OVERLAP_CORRECTION
     original_qc_mode = core.QC_MODE
+    original_direct_elements = core.DIRECT_ELEMENTS
+    original_ag_normalized_elements = core.AG_NORMALIZED_ELEMENTS
 
     core.REFERENCE_INTENSITY = REFERENCE_INTENSITY
     core.CALIBRATION_B = CALIBRATION_B
     core.CALIBRATION_C = CALIBRATION_C
     core.OVERLAP_CORRECTION = OVERLAP_CORRECTION
     core.QC_MODE = QC_MODE
+    core.DIRECT_ELEMENTS = DIRECT_ELEMENTS
+    core.AG_NORMALIZED_ELEMENTS = AG_NORMALIZED_ELEMENTS
     try:
         yield
     finally:
@@ -88,6 +95,8 @@ def cols_configuration():
         core.CALIBRATION_C = original_c
         core.OVERLAP_CORRECTION = original_overlap
         core.QC_MODE = original_qc_mode
+        core.DIRECT_ELEMENTS = original_direct_elements
+        core.AG_NORMALIZED_ELEMENTS = original_ag_normalized_elements
 
 
 def calculate_all(measurements):
