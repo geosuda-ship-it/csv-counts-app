@@ -473,6 +473,13 @@ def create_workbook(coefficient_rows, corrected_rows, missing_dates) -> Workbook
             warning_sheet.append([missing_date])
         style_sheet(warning_sheet, date_columns=("A",))
 
+    # 「定量値」シートを一番左へ移動し、Excelを開いたときにも表示する。
+    workbook.move_sheet(
+        quantitative_sheet,
+        offset=-workbook.index(quantitative_sheet),
+    )
+    workbook.active = workbook.index(quantitative_sheet)
+
     return workbook
 
 
