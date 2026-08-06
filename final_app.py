@@ -85,6 +85,6 @@ if result is not None:
         data=result["summary_content"],
         file_name=result["summary_file_name"],
         mime=EXCEL_MIME,
+        type="primary",
         use_container_width=True,
     )
-
