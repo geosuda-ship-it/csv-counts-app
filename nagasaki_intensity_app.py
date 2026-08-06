@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +11,13 @@ from colab_edx_full_pipeline import (
     extract_measurements,
     is_qc,
 )
+
+
+def make_output_name(input_name: str) -> str:
+    """CSV名から「日付_定量値.xlsx」形式の出力名を作る。"""
+    input_stem = Path(input_name).stem
+    base_name = re.sub(r"\s*\(\d+\)$", "", input_stem).strip()
+    return f"{base_name}_定量値.xlsx"
 
 
 st.set_page_config(
@@ -196,9 +204,7 @@ if st.button("計算を実行", type="primary", use_container_width=True):
             _, corrected_rows, skipped_dates = calculate_all(measurements)
             result_bytes = convert_csv(file_bytes)
 
-        output_name = (
-            f"{Path(uploaded.name).stem}_補正後強度_定量値.xlsx"
-        )
+        output_name = make_output_name(uploaded.name)
         st.session_state.result_bytes = result_bytes
         st.session_state.result_name = output_name
         st.session_state.result_count = len(corrected_rows)
