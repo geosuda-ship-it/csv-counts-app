@@ -21,22 +21,38 @@ st.write(
 )
 
 st.info(
-    "入力：定量計算パラメーター.xlsx ＋ 日付.csv\n\n"
+    "入力：機関名_定量計算パラメーター.xlsx ＋ 日付.csv\n\n"
     "出力：日付_定量値.xlsx"
 )
 
+st.markdown(
+    "1. 使用する機関の「定量計算パラメーター.xlsx」を"
+    "アップロードしてください。"
+)
+st.caption("例：長崎大学_定量計算パラメーターver1.xlsx")
 parameter_file = st.file_uploader(
-    "1．「定量計算パラメーター.xlsx」をアップロードしてください。",
+    "定量計算パラメーターファイル",
     type=["xlsx", "xlsm"],
     key="quantitative_parameter_file",
+    label_visibility="collapsed",
 )
 
+st.markdown(
+    "2. NEX DEから出力した強度データ「日付.csv」を"
+    "アップロードしてください。"
+)
+st.caption("例：20260728.csv")
 csv_file = st.file_uploader(
-    "2．「日付.csv」をアップロードしてください。",
+    "NEX DEの強度データファイル",
     type=["csv"],
     key="quantitative_csv_file",
+    label_visibility="collapsed",
 )
 
+st.markdown(
+    "3. 2つのファイルを選択した後、"
+    "「定量値を計算」ボタンを押してください。"
+)
 run_button = st.button(
     "定量値を計算",
     type="primary",
@@ -92,4 +108,3 @@ if result is not None:
         type="primary",
         use_container_width=True,
     )
-
