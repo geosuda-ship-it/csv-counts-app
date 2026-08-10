@@ -3,9 +3,10 @@ Google Colab用：サンプルごとの最終グループ判定ツール
 
 使い方
 1. このコード全体をGoogle Colabの1セルに貼り付けて実行する。
-2. グループ判定結果ファイル
-   （日付_判定結果.xlsx）をアップロードする。
-3. 「最終判定集計シート.xlsx」をアップロードする。
+2. STEP 2で作成した判定結果ファイルをアップロードする。
+   例：20260728_判定結果.xlsx
+3. 共通の「最終判定集計シート.xlsx」をアップロードする。
+   例：最終判定集計シート_ver1.xlsx
 4. 処理完了後、「日付_最終判定結果.xlsx」と
    「日付_最終判定集計シート.xlsx」が自動ダウンロードされる。
 
@@ -81,7 +82,7 @@ def make_output_file_names(input_name: str) -> tuple[str, str]:
     if date_match is None:
         raise ValueError(
             "グループ判定結果ファイル名の先頭から8桁の日付を"
-            "読み取れません。\n例：20260511_判定結果.xlsx"
+            "読み取れません。\n例：20260728_判定結果.xlsx"
         )
 
     date_text = date_match.group(1)
@@ -169,7 +170,7 @@ def create_final_judgment(
     template_file_name: str,
 ) -> dict:
     if not judgment_content:
-        raise ValueError("日付_判定結果.xlsxが空です。")
+        raise ValueError("STEP 2で作成した判定結果ファイルが空です。")
     if not template_content:
         raise ValueError("最終判定集計シート.xlsxが空です。")
 
