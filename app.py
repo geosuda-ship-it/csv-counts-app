@@ -116,6 +116,7 @@ if run_button:
             output = create_group_judgment(
                 parameter_file,
                 quantitative_file,
+                quantitative_file.name,
             )
 
         st.success(
