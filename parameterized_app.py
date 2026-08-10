@@ -16,29 +16,18 @@ st.set_page_config(
 
 st.title("強度から定量値への変換")
 st.write(
-    "機関ごとの定量計算パラメーターを使用して、"
-    "EDXの強度データから定量値を計算します。"
+    "NEX DEから出力したCSV形式の測定結果ファイルと、"
+    "機関ごとの定量計算パラメーターファイルを使用して、"
+    "定量値を計算します。"
 )
 
 st.info(
-    "入力：機関名_定量計算パラメーター.xlsx ＋ 日付.csv\n\n"
+    "入力：日付.csv ＋ 機関名_定量計算パラメーター.xlsx\n\n"
     "出力：日付_定量値.xlsx"
 )
 
 st.markdown(
-    "1. 使用する機関の「定量計算パラメーター.xlsx」を"
-    "アップロードしてください。"
-)
-st.caption("例：長崎大学_定量計算パラメーターver1.xlsx")
-parameter_file = st.file_uploader(
-    "定量計算パラメーターファイル",
-    type=["xlsx", "xlsm"],
-    key="quantitative_parameter_file",
-    label_visibility="collapsed",
-)
-
-st.markdown(
-    "2. NEX DEから出力した強度データ「日付.csv」を"
+    "1. NEX DEから出力したCSV形式の測定結果ファイルを"
     "アップロードしてください。"
 )
 st.caption("例：20260728.csv")
@@ -46,6 +35,18 @@ csv_file = st.file_uploader(
     "NEX DEの強度データファイル",
     type=["csv"],
     key="quantitative_csv_file",
+    label_visibility="collapsed",
+)
+
+st.markdown(
+    "2. 機関ごとの定量計算パラメーターファイルを"
+    "アップロードしてください。"
+)
+st.caption("例：長崎大学_定量計算パラメーター_ver1.xlsx")
+parameter_file = st.file_uploader(
+    "定量計算パラメーターファイル",
+    type=["xlsx", "xlsm"],
+    key="quantitative_parameter_file",
     label_visibility="collapsed",
 )
 
@@ -62,19 +63,30 @@ run_button = st.button(
 if run_button:
     st.session_state.pop("quantitative_result", None)
 
-    if parameter_file is None or csv_file is None:
-        st.warning("パラメーターExcelとCSVを両方アップロードしてください。")
-    else:
-        try:
-            with st.spinner("ドリフト補正と定量計算を実行しています…"):
-                result = create_quantitative_excel(
-                    parameter_content=parameter_file.getvalue(),
-                    csv_content=csv_file.getvalue(),
-                    csv_file_name=csv_file.name,
-                )
-            st.session_state["quantitative_result"] = result
-        except Exception as error:
-            st.error(f"処理できませんでした。\n\n{error}")
+    if csv_file is None:
+        st.warning(
+            "NEX DEから出力したCSV形式の測定結果ファイルを"
+            "アップロードしてください。"
+        )
+        st.stop()
+
+    if parameter_file is None:
+        st.warning(
+            "機関ごとの定量計算パラメーターファイルを"
+            "アップロードしてください。"
+        )
+        st.stop()
+
+    try:
+        with st.spinner("ドリフト補正と定量計算を実行しています…"):
+            result = create_quantitative_excel(
+                parameter_content=parameter_file.getvalue(),
+                csv_content=csv_file.getvalue(),
+                csv_file_name=csv_file.name,
+            )
+        st.session_state["quantitative_result"] = result
+    except Exception as error:
+        st.error(f"処理できませんでした。\n\n{error}")
 
 result = st.session_state.get("quantitative_result")
 if result is not None:

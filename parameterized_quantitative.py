@@ -2,15 +2,15 @@
 Google Colab用：EDX CSVから定量値Excelまでを一括作成する。
 
 処理:
-1. 定量計算パラメーター.xlsxをアップロード
-2. 日付.csvをアップロード
+1. NEX DEから出力した日付.csvをアップロード
+2. 機関ごとの定量計算パラメーター.xlsxをアップロード
 3. パラメーターに指定されたQC測定からドリフト補正係数を算出
 4. 指定された元素にAg内標準補正を適用
 5. 検量線定数B・Cから定量値を算出
 6. 指定された重なり補正を適用
 
 Colabでは、このコード全体を1つのセルに貼り付けて実行する。
-パラメーターExcelとCSVを順番にアップロードすると、
+CSVとパラメーターExcelを順番にアップロードすると、
 日付_定量値.xlsxが自動的にダウンロードされる。
 """
 
@@ -791,4 +791,3 @@ def create_quantitative_excel(
         "output_row_count": len(corrected_rows),
         "missing_dates": missing_dates,
     }
-
