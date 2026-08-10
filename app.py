@@ -21,22 +21,45 @@ st.set_page_config(
 st.title("各定量値の化学組成グループ判定")
 
 st.write(
-    "判別楕円パラメータと定量値ファイルを使用して，"
+    "STEP 1で作成した定量値の計算結果ファイルと、"
+    "共通の判別楕円パラメーターファイルを使用して、"
     "各定量分析値の化学組成グループを判定します。"
 )
 
 st.info(
-    "入力：判別楕円パラメータ.xlsx ＋ 日付_定量値.xlsx\n\n"
+    "入力：日付_定量値.xlsx ＋ 判別楕円パラメータ.xlsx\n\n"
     "出力：日付_判定結果.xlsx"
 )
 
 
 # ============================================================
-# 1．判別楕円パラメータ
+# 1．定量値ファイル
 # ============================================================
 
 st.write(
-    '1. 「判別楕円パラメータ.xlsx」をアップロードしてください。'
+    "1. STEP 1で作成した定量値の計算結果ファイルを"
+    "アップロードしてください。"
+)
+
+st.caption(
+    "例：20260728_定量値.xlsx"
+)
+
+quantitative_file = st.file_uploader(
+    "定量値ファイル",
+    type=["xlsx", "xlsm"],
+    key="quantitative",
+    label_visibility="collapsed",
+)
+
+
+# ============================================================
+# 2．判別楕円パラメータ
+# ============================================================
+
+st.write(
+    "2. 共通の判別楕円パラメーターファイルを"
+    "アップロードしてください。"
 )
 
 st.caption(
@@ -47,27 +70,6 @@ parameter_file = st.file_uploader(
     "判別楕円パラメータ",
     type=["xlsx", "xlsm"],
     key="parameter",
-    label_visibility="collapsed",
-)
-
-
-# ============================================================
-# 2．定量値ファイル
-# ============================================================
-
-st.write(
-    "2. 強度から定量値への変換ツールで作成した"
-    "定量値ファイルをアップロードしてください。"
-)
-
-st.caption(
-    "例：20260803_定量値.xlsx"
-)
-
-quantitative_file = st.file_uploader(
-    "定量値ファイル",
-    type=["xlsx", "xlsm"],
-    key="quantitative",
     label_visibility="collapsed",
 )
 
@@ -94,16 +96,17 @@ run_button = st.button(
 
 if run_button:
 
-    if parameter_file is None:
+    if quantitative_file is None:
         st.error(
-            "「判別楕円パラメータ.xlsx」をアップロードしてください。"
+            "STEP 1で作成した定量値の計算結果ファイルを"
+            "アップロードしてください。"
         )
         st.stop()
 
-    if quantitative_file is None:
+    if parameter_file is None:
         st.error(
-            "強度から定量値への変換ツールで作成した"
-            "定量値ファイルをアップロードしてください。"
+            "共通の判別楕円パラメーターファイルを"
+            "アップロードしてください。"
         )
         st.stop()
 
@@ -118,29 +121,14 @@ if run_button:
                 quantitative_file.name,
             )
 
-        output_content = output.get(
-            "content",
-            output.get("data"),
-        )
-        output_file_name = output.get(
-            "file_name",
-            output.get("filename"),
-        )
-
-        if output_content is None or output_file_name is None:
-            raise KeyError(
-                "create_group_judgment() の戻り値に必要なキーがありません。"
-                f"実際のキー：{list(output.keys())}"
-            )
-
         st.success(
             "化学組成グループの判定が完了しました。"
         )
 
         st.download_button(
             label="判定結果をダウンロード",
-            data=output_content,
-            file_name=output_file_name,
+            data=output["content"],
+            file_name=output["file_name"],
             mime=(
                 "application/vnd.openxmlformats-officedocument."
                 "spreadsheetml.sheet"

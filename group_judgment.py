@@ -5,8 +5,10 @@ Google Colab用
 使い方
 ------
 1. コード全体をGoogle Colabの1セルに貼り付けて実行
-2. 「判別楕円パラメーター.xlsx」をアップロード
-3. 続いて，定量値ファイル（日付_定量値.xlsx）をアップロード
+2. STEP 1で作成した定量値ファイルをアップロード
+   例：20260728_定量値.xlsx
+3. 続いて，共通の判別楕円パラメーターファイルをアップロード
+   例：長崎大学_判別楕円パラメータ_ver1.xlsx
 4. グループ判定結果ファイル
    （日付_判定結果.xlsx）が自動的にダウンロードされる
 
@@ -1391,4 +1393,3 @@ def create_group_judgment(
         "group_count": len(group_names),
         "group_names": group_names,
     }
-
