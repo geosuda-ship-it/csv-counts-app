@@ -9,16 +9,16 @@ EXCEL_MIME = (
 )
 
 st.set_page_config(
-    page_title="強度から定量値への変換",
+    page_title="STEP 1　強度データから定量値を作成する",
     page_icon="🧪",
     layout="centered",
 )
 
-st.title("強度から定量値への変換")
+st.title("STEP 1　強度データから定量値を作成する")
 st.write(
     "NEX DEから出力したCSV形式の測定結果ファイルと、"
-    "機関ごとの定量計算パラメーターファイルを使用して、"
-    "定量値を計算します。"
+    "機関ごとの定量計算パラメーターファイルをアップロードすると、"
+    "定量値の計算結果をExcelファイルとしてダウンロードできます。"
 )
 
 st.info(
