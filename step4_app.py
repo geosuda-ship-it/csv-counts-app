@@ -29,9 +29,9 @@ st.markdown(
 )
 
 st.info(
-    "入力：日付_定量値.xlsx ＋ 判別楕円パラメータ.xlsx\n\n"
-    "表示：Mandatoryの判別楕円と各定量分析値を重ねた判別図\n\n"
-    "出力：日付_判別図.png"
+    "Upload：日付_定量値.xlsx ＋ 判別楕円パラメータ.xlsx\n\n"
+    "Display：Mandatoryの判別楕円と各定量分析値を重ねた判別図\n\n"
+    "Download：日付_判別図.png"
 )
 
 st.write(
