@@ -15,9 +15,14 @@ st.set_page_config(
 
 st.title("STEP 4　判定結果を判別図上で確認する")
 
-st.write(
-    "STEP 1で作成した定量値の計算結果ファイルと、"
-    "共通の判別楕円パラメーターファイルをアップロードすると、"
+st.markdown(
+    "STEP 1で作成した定量値の計算結果ファイル"
+    "（例：20260728_定量値.xlsx）と、共通の判別楕円"
+    "パラメーターファイル（例："
+    "[長崎大学_判別楕円パラメータ_ver1.xlsx]"
+    "(https://docs.google.com/spreadsheets/d/"
+    "1JEbuQlqNbXQJIX-iEROrPR8X3t0d2y3xqJG_mu0-jac/"
+    "edit?usp=sharing)）をアップロードすると、"
     "Mandatoryの判別楕円と各定量分析値を重ねた判別図が表示されます。"
     "ValidとInvalidは異なるシンボルで表示され、"
     "作成した判別図をPNG画像としてダウンロードできます。"
