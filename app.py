@@ -87,7 +87,6 @@ run_button = st.button(
     type="primary",
 )
 
-
 # ============================================================
 # 判定処理
 # ============================================================
@@ -114,8 +113,8 @@ if run_button:
         ):
 
             output = create_group_judgment(
-                parameter_file,
-                quantitative_file,
+                parameter_file.getvalue(),
+                quantitative_file.getvalue(),
                 quantitative_file.name,
             )
 
