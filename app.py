@@ -111,7 +111,6 @@ if run_button:
         with st.spinner(
             "化学組成グループを判定しています..."
         ):
-
             output = create_group_judgment(
                 parameter_file.getvalue(),
                 quantitative_file.getvalue(),
@@ -124,8 +123,8 @@ if run_button:
 
         st.download_button(
             label="判定結果をダウンロード",
-            data=output,
-            file_name=output.name,
+            data=output["data"],
+            file_name=output["file_name"],
             mime=(
                 "application/vnd.openxmlformats-officedocument."
                 "spreadsheetml.sheet"
@@ -135,9 +134,7 @@ if run_button:
         )
 
     except Exception as error:
-
         st.error(
             "判定処理中にエラーが発生しました。"
         )
-
         st.exception(error)
