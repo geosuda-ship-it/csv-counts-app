@@ -16,26 +16,44 @@ st.set_page_config(
 
 st.title("各サンプルの最終判定")
 st.write(
-    "各定量値のグループ判定結果をサンプルごとに集約し、"
-    "最終判定結果と集計済みシートを作成します。"
+    "STEP 2で作成した判定結果ファイルと、"
+    "共通のグループ集計シートを使用して、"
+    "各サンプルの最終判定と化学組成グループの集計を行います。"
 )
 
 st.info(
-    "入力：日付_判定結果.xlsx ＋ 最終判定集計シート.xlsx\n\n"
+    "入力：日付_判定結果.xlsx ＋ グループ集計シート.xlsx\n\n"
     "出力：日付_最終判定結果.xlsx ＋ "
-    "日付_最終判定集計シート.xlsx"
+    "日付_グループ集計結果.xlsx"
 )
 
+st.write(
+    "1. STEP 2で作成した判定結果ファイルを"
+    "アップロードしてください。"
+)
+st.caption("例：20260728_判定結果.xlsx")
 judgment_file = st.file_uploader(
-    "1．「日付_判定結果.xlsx」をアップロードしてください。",
+    "判定結果ファイル",
     type=["xlsx", "xlsm"],
     key="final_judgment_input",
+    label_visibility="collapsed",
 )
 
+st.write(
+    "2. 共通の「グループ集計シート.xlsx」を"
+    "アップロードしてください。"
+)
+st.caption("例：グループ集計シート_ver1.xlsx")
 template_file = st.file_uploader(
-    "2．「最終判定集計シート.xlsx」をアップロードしてください。",
+    "グループ集計シート",
     type=["xlsx", "xlsm"],
     key="final_summary_template",
+    label_visibility="collapsed",
+)
+
+st.write(
+    "3. 2つのファイルを選択した後、"
+    "「最終判定を実行」ボタンを押してください。"
 )
 
 run_button = st.button(
@@ -47,20 +65,31 @@ run_button = st.button(
 if run_button:
     st.session_state.pop("final_judgment_result", None)
 
-    if judgment_file is None or template_file is None:
-        st.warning("2つのExcelファイルを両方アップロードしてください。")
-    else:
-        try:
-            with st.spinner("サンプルごとの最終判定を計算しています…"):
-                result = create_final_judgment(
-                    judgment_content=judgment_file.getvalue(),
-                    judgment_file_name=judgment_file.name,
-                    template_content=template_file.getvalue(),
-                    template_file_name=template_file.name,
-                )
-            st.session_state["final_judgment_result"] = result
-        except Exception as error:
-            st.error(f"処理できませんでした。\n\n{error}")
+    if judgment_file is None:
+        st.warning(
+            "STEP 2で作成した判定結果ファイルを"
+            "アップロードしてください。"
+        )
+        st.stop()
+
+    if template_file is None:
+        st.warning(
+            "共通の「グループ集計シート.xlsx」を"
+            "アップロードしてください。"
+        )
+        st.stop()
+
+    try:
+        with st.spinner("サンプルごとの最終判定を計算しています…"):
+            result = create_final_judgment(
+                judgment_content=judgment_file.getvalue(),
+                judgment_file_name=judgment_file.name,
+                template_content=template_file.getvalue(),
+                template_file_name=template_file.name,
+            )
+        st.session_state["final_judgment_result"] = result
+    except Exception as error:
+        st.error(f"処理できませんでした。\n\n{error}")
 
 result = st.session_state.get("final_judgment_result")
 if result is not None:

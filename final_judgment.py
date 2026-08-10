@@ -5,10 +5,10 @@ Google Colab用：サンプルごとの最終グループ判定ツール
 1. このコード全体をGoogle Colabの1セルに貼り付けて実行する。
 2. STEP 2で作成した判定結果ファイルをアップロードする。
    例：20260728_判定結果.xlsx
-3. 共通の「最終判定集計シート.xlsx」をアップロードする。
-   例：最終判定集計シート_ver1.xlsx
+3. 共通の「グループ集計シート.xlsx」をアップロードする。
+   例：グループ集計シート_ver1.xlsx
 4. 処理完了後、「日付_最終判定結果.xlsx」と
-   「日付_最終判定集計シート.xlsx」が自動ダウンロードされる。
+   「日付_グループ集計結果.xlsx」が自動ダウンロードされる。
 
 入力シート（必須）
 ・判定結果
@@ -88,7 +88,7 @@ def make_output_file_names(input_name: str) -> tuple[str, str]:
     date_text = date_match.group(1)
     return (
         f"{date_text}_最終判定結果.xlsx",
-        f"{date_text}_最終判定集計シート.xlsx",
+        f"{date_text}_グループ集計結果.xlsx",
     )
 
 
@@ -172,7 +172,7 @@ def create_final_judgment(
     if not judgment_content:
         raise ValueError("STEP 2で作成した判定結果ファイルが空です。")
     if not template_content:
-        raise ValueError("最終判定集計シート.xlsxが空です。")
+        raise ValueError("グループ集計シート.xlsxが空です。")
 
     input_name = judgment_file_name
     input_bytes = judgment_content
@@ -442,7 +442,7 @@ def create_final_judgment(
     
     if summary_ws.max_row < 36 or summary_ws.max_column < 10:
         raise ValueError(
-            "最終判定集計シートのレイアウトが想定と異なります。"
+            "グループ集計シートのレイアウトが想定と異なります。"
             " 少なくともA1:J36の範囲が必要です。"
         )
     
@@ -467,7 +467,7 @@ def create_final_judgment(
     )
     if missing_groups:
         raise ValueError(
-            "最終判定集計シートに次の化学組成グループがありません："
+            "グループ集計シートに次の化学組成グループがありません："
             + "、".join(missing_groups)
         )
     
