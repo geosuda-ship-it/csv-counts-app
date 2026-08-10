@@ -87,6 +87,7 @@ run_button = st.button(
     type="primary",
 )
 
+
 # ============================================================
 # 判定処理
 # ============================================================
@@ -117,14 +118,29 @@ if run_button:
                 quantitative_file.name,
             )
 
+        output_content = output.get(
+            "content",
+            output.get("data"),
+        )
+        output_file_name = output.get(
+            "file_name",
+            output.get("filename"),
+        )
+
+        if output_content is None or output_file_name is None:
+            raise KeyError(
+                "create_group_judgment() の戻り値に必要なキーがありません。"
+                f"実際のキー：{list(output.keys())}"
+            )
+
         st.success(
             "化学組成グループの判定が完了しました。"
         )
 
         st.download_button(
             label="判定結果をダウンロード",
-            data=output["data"],
-            file_name=output["file_name"],
+            data=output_content,
+            file_name=output_file_name,
             mime=(
                 "application/vnd.openxmlformats-officedocument."
                 "spreadsheetml.sheet"
