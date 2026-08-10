@@ -1,62 +1,73 @@
 import streamlit as st
 
-from final_judgment import create_final_judgment
+from group_judgment import create_group_judgment
 
+
+# ============================================================
+# ページ設定
+# ============================================================
 
 st.set_page_config(
-    page_title="各サンプルの最終判定",
+    page_title="各定量値の化学組成グループ判定",
     page_icon="🪨",
     layout="centered",
 )
 
-st.title("各サンプルの最終判定")
+
+# ============================================================
+# タイトル・説明
+# ============================================================
+
+st.title("各定量値の化学組成グループ判定")
 
 st.write(
-    "各定量値のグループ判定結果をサンプルごとに集約し，"
-    "最終判定結果と集計済みシートを作成します。"
+    "判別楕円パラメータと定量値ファイルを使用して，"
+    "各定量分析値の化学組成グループを判定します。"
 )
 
 st.info(
-    "入力：日付_判定結果.xlsx ＋ 最終判定集計シート.xlsx\n\n"
-    "出力：日付_最終判定結果.xlsx ＋ "
-    "日付_最終判定集計シート.xlsx"
+    "入力：判別楕円パラメータ.xlsx ＋ 日付_定量値.xlsx\n\n"
+    "出力：日付_判定結果.xlsx"
 )
 
 
 # ============================================================
-# 1．判定結果ファイル
+# 1．判別楕円パラメータ
 # ============================================================
 
 st.write(
-    "1. STEP 2で作成した判定結果ファイルを"
-    "アップロードしてください。"
+    '1. 「判別楕円パラメータ.xlsx」をアップロードしてください。'
 )
 
-st.caption("例：20260728_判定結果.xlsx")
+st.caption(
+    "例：長崎大学_判別楕円パラメータ_ver1.xlsx"
+)
 
-judgment_file = st.file_uploader(
-    "判定結果ファイル",
+parameter_file = st.file_uploader(
+    "判別楕円パラメータ",
     type=["xlsx", "xlsm"],
-    key="judgment",
+    key="parameter",
     label_visibility="collapsed",
 )
 
 
 # ============================================================
-# 2．最終判定集計シート
+# 2．定量値ファイル
 # ============================================================
 
 st.write(
-    "2. 共通の「最終判定集計シート.xlsx」を"
-    "アップロードしてください。"
+    "2. 強度から定量値への変換ツールで作成した"
+    "定量値ファイルをアップロードしてください。"
 )
 
-st.caption("例：最終判定集計シート_ver1.xlsx")
+st.caption(
+    "例：20260803_定量値.xlsx"
+)
 
-template_file = st.file_uploader(
-    "最終判定集計シート",
+quantitative_file = st.file_uploader(
+    "定量値ファイル",
     type=["xlsx", "xlsm"],
-    key="template",
+    key="quantitative",
     label_visibility="collapsed",
 )
 
@@ -67,83 +78,69 @@ template_file = st.file_uploader(
 
 st.write(
     "3. 2つのファイルを選択した後，"
-    "「最終判定を実行」ボタンを押してください。"
+    "「グループ判定を実行」ボタンを押してください。"
 )
 
 run_button = st.button(
-    "最終判定を実行",
+    "グループ判定を実行",
     use_container_width=True,
     type="primary",
 )
 
 
 # ============================================================
-# 最終判定処理
+# 判定処理
 # ============================================================
 
 if run_button:
 
-    if judgment_file is None:
+    if parameter_file is None:
         st.error(
-            "STEP 2で作成した判定結果ファイルを"
-            "アップロードしてください。"
+            "「判別楕円パラメータ.xlsx」をアップロードしてください。"
         )
         st.stop()
 
-    if template_file is None:
+    if quantitative_file is None:
         st.error(
-            "共通の「最終判定集計シート.xlsx」を"
-            "アップロードしてください。"
+            "強度から定量値への変換ツールで作成した"
+            "定量値ファイルをアップロードしてください。"
         )
         st.stop()
 
     try:
+
         with st.spinner(
-            "サンプルごとの最終判定と集計を行っています..."
+            "化学組成グループを判定しています..."
         ):
-            output = create_final_judgment(
-                judgment_file.getvalue(),
-                judgment_file.name,
-                template_file.getvalue(),
-                template_file.name,
+            output = create_group_judgment(
+                parameter_file.getvalue(),
+                quantitative_file.getvalue(),
+                quantitative_file.name,
             )
 
-        st.success("最終判定と集計が完了しました。")
-
-        metric_columns = st.columns(3)
-        metric_columns[0].metric(
-            "サンプル数",
-            output["sample_count"],
+        output_content = output.get(
+            "content",
+            output.get("data"),
         )
-        metric_columns[1].metric(
-            "判定数",
-            output["judged_count"],
-        )
-        metric_columns[2].metric(
-            "判定不能",
-            output["unclassifiable_count"],
+        output_file_name = output.get(
+            "file_name",
+            output.get("filename"),
         )
 
-        st.download_button(
-            label=(
-                f'{output["judgment_file_name"]}をダウンロード'
-            ),
-            data=output["judgment_content"],
-            file_name=output["judgment_file_name"],
-            mime=(
-                "application/vnd.openxmlformats-officedocument."
-                "spreadsheetml.sheet"
-            ),
-            use_container_width=True,
-            type="primary",
+        if output_content is None or output_file_name is None:
+            raise KeyError(
+                "create_group_judgment() の戻り値に必要なキーがありません。"
+                f"実際のキー：{list(output.keys())}"
+            )
+
+        st.success(
+            "化学組成グループの判定が完了しました。"
         )
 
         st.download_button(
-            label=(
-                f'{output["summary_file_name"]}をダウンロード'
-            ),
-            data=output["summary_content"],
-            file_name=output["summary_file_name"],
+            label="判定結果をダウンロード",
+            data=output_content,
+            file_name=output_file_name,
             mime=(
                 "application/vnd.openxmlformats-officedocument."
                 "spreadsheetml.sheet"
@@ -153,5 +150,7 @@ if run_button:
         )
 
     except Exception as error:
-        st.error("最終判定処理中にエラーが発生しました。")
+        st.error(
+            "判定処理中にエラーが発生しました。"
+        )
         st.exception(error)
