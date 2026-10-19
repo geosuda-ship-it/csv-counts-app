@@ -69,7 +69,7 @@ def show_table(frame):
 def main():
     st.set_page_config(page_title="黒曜石EDXRF クラスター解析", page_icon="🔬", layout="wide")
     st.title("クラスター法による黒曜石の化学組成グループ候補の評価")
-    st.write("判定済みExcelをアップロードして、資料のクラスターと化学組成グループとの整合性を確認します。")
+    st.write("各資料の代表値と各化学組成グループの判別楕円のパラメーターを含むExcelファイルをアップロードしてください。")
     st.caption("Excelで個別判定・再計算を実行し、保存した .xlsx ファイルを使用してください。")
     uploaded = st.file_uploader("Excelファイル", type=["xlsx"])
     with st.expander("解析方法・入力ファイルについて"):
