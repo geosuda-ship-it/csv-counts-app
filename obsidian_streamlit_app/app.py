@@ -67,17 +67,12 @@ def show_table(frame):
 
 
 def main():
-    st.set_page_config(page_title="黒曜石EDXRF クラスター解析", page_icon="🔬", layout="wide")
+    st.set_page_config(page_title="Obsidian EDXRF Clustering", page_icon="🔬", layout="wide")
     st.title("クラスター法による黒曜石の化学組成グループ候補の評価")
     st.write("各資料の代表値と各化学組成グループの判別楕円のパラメーターを含むExcelファイルをアップロードしてください。")
-    st.caption("Excelで個別判定・再計算を実行し、保存した .xlsx ファイルを使用してください。")
+   
     uploaded = st.file_uploader("Excelファイル", type=["xlsx"])
-    with st.expander("解析方法・入力ファイルについて"):
-        st.write("Medianシートの資料ごとの代表値と、AS-1以降の各シートのL4:T7にあるD1〜D3の判別楕円パラメータを読み込みます。")
-        st.write("Rb*・Sr*・Zr*は、Rb+Sr+Y+Zrを分母として計算します。3変数を標準化し、HDBSCAN（最小クラスター資料数3、min_samples=3）で検出します。")
-        st.write("クラスターの楕円は共分散に基づく95%分布楕円です。中心の信頼区間ではありません。")
-        st.write("内包率はクラスター内の資料が判別楕円に入る割合です。3図共通内包率は、同じ資料がD1〜D3すべての楕円に入る割合です。")
-        st.write("候補はクラスター全体に対する比較結果です。各資料の個別判定や産地の確定を意味しません。代表値の選択方法は元のMedianシートに依存します。")
+    
     if uploaded is None:
         st.session_state.pop("analysis", None)
         st.info("Excelを選択すると、解析を開始できます。")
