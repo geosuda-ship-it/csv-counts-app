@@ -1,630 +1,197 @@
-from io import BytesIO
 
-import pandas as pd
+import hashlib
+from pathlib import Path
+
 import streamlit as st
 
+from ellipse_analysis import (
+    read_measurements,
+    read_ellipse_parameters,
+    run_ellipse_analysis,
+    export_results,
+    public_table,
+)
+
+
 st.set_page_config(
-    page_title="Obsidian EDXRF Ellipse Method",
+    page_title="黒曜石の産地判別",
+    page_icon="🔬",
     layout="wide",
 )
 
-st.title("判別楕円法による黒曜石の化学組成グループ候補の評価")
+st.title("黒曜石の産地判別（判別楕円法）")
 
-uploaded = st.file_uploader(
-    "測定データのExcelファイル（をアップロードしてください。",
-    type=["xlsx"],
+st.write(
+    "蛍光X線分析による元素定量値と判別楕円パラメーターを用いて，"
+    "黒曜石製石器の化学組成グループを判別します。"
 )
 
-if uploaded is not None:
-    try:
-        data = pd.read_excel(
-            BytesIO(uploaded.getvalue()),
-            sheet_name="定量値",
-            dtype={"sample": "string"},
-            engine="openpyxl",
-        ).dropna(how="all").copy()
 
-        if data.empty:
-            raise ValueError("定量値シートに測定データがありません。")
+# --------------------------------------------------
+# 入力ファイル
+# --------------------------------------------------
 
-        if "sample" not in data.columns:
-            raise ValueError("定量値シートにsample列がありません。")
+st.subheader("1．測定データ")
 
-        # 元の資料IDを残す
-        data["sample_元表記"] = data["sample"].copy()
+measurement_file = st.file_uploader(
+    "元素定量値のExcelファイルを選択してください",
+    type=["xlsx"],
+    key="measurement",
+)
 
-        # アポストロフィを無視して資料IDを統一
-        data["sample"] = (
-            data["sample"]
-            .str.replace("'", "", regex=False)
-            .str.strip()
-        )
+st.caption("「定量値」シートを含むExcelファイル")
 
-        if data["sample"].isna().any() or data["sample"].eq("").any():
-            raise ValueError("資料IDが空白の測定データがあります。")
 
-    except Exception as exc:
-        st.error(f"読み込めませんでした：{exc}")
-        st.stop()
+st.subheader("2．判別楕円パラメーター")
 
-    sample_counts = (
-        data.groupby("sample", sort=False)
-        .size()
-        .reset_index(name="測定回数")
-    )
+parameter_file = st.file_uploader(
+    "判別楕円パラメーターのExcelファイルを選択してください",
+    type=["xlsx"],
+    key="parameters",
+)
 
-    st.success(
-        f"{len(sample_counts)}資料・{len(data)}測定を読み込みました。"
-    )
+st.caption(
+    "AS-1以降の各化学組成グループのシートから，"
+    "D1〜D6の判別楕円パラメーターを読み込みます。"
+)
 
-    st.subheader("資料別の測定回数")
-    st.dataframe(sample_counts, hide_index=True, width="stretch")
 
-    with st.expander("測定データを確認する"):
-        st.dataframe(data, hide_index=True, width="stretch")
-if uploaded is not None:
-    import openpyxl
+# --------------------------------------------------
+# 解析処理
+# --------------------------------------------------
 
-    parameter_file = st.file_uploader(
-        "② 判別楕円パラメーターのExcelファイルをアップロードしてください。",
-        type=["xlsx"],
-    )
+st.subheader("3．産地判別")
 
-    if parameter_file is not None:
-        parameter_columns = [
-            "Diagram", "Group", "X", "Y",
-            "x0", "y0", "a", "b", "theta",
-        ]
+ready = (
+    measurement_file is not None
+    and parameter_file is not None
+)
 
-        parameter_rows = []
-        workbook = None
+signature = None
 
-        try:
-            workbook = openpyxl.load_workbook(
-                BytesIO(parameter_file.getvalue()),
-                read_only=True,
-                data_only=True,
-            )
+if ready:
+    digest = hashlib.sha256()
 
-            if "AS-1" not in workbook.sheetnames:
-                raise ValueError("AS-1シートがありません。")
+    for uploaded in (measurement_file, parameter_file):
+        digest.update(uploaded.name.encode("utf-8"))
+        digest.update(uploaded.getvalue())
 
-            start = workbook.sheetnames.index("AS-1")
+    signature = digest.hexdigest()
 
-            for sheet_name in workbook.sheetnames[start:]:
-                sheet = workbook[sheet_name]
 
-                block = list(sheet.iter_rows(
-                    min_row=4,
-                    max_row=10,
-                    min_col=12,
-                    max_col=20,
-                    values_only=True,
-                ))
-
-                headers = [
-                    str(value).strip() if value is not None else ""
-                    for value in block[0]
-                ]
-
-                if headers != parameter_columns:
-                    raise ValueError(
-                        f"{sheet_name}シートのL4:T4の見出しが一致しません。"
-                    )
-
-                group_data = pd.DataFrame(
-                    block[1:],
-                    columns=parameter_columns,
-                )
-
-                if sorted(group_data["Diagram"].tolist()) != [1, 2, 3, 4, 5, 6]:
-                    raise ValueError(
-                        f"{sheet_name}シートにD1〜D6が揃っていません。"
-                    )
-
-                if not group_data["Group"].eq(sheet_name).all():
-                    raise ValueError(
-                        f"{sheet_name}シートのGroupとシート名が一致しません。"
-                    )
-
-                parameter_rows.extend(
-                    group_data.to_dict("records")
-                )
-
-        except Exception as exc:
-            st.error(f"パラメーターを読み込めませんでした：{exc}")
-            st.stop()
-
-        finally:
-            if workbook is not None:
-                workbook.close()
-
-        ellipse_parameters = pd.DataFrame(
-            parameter_rows,
-            columns=parameter_columns,
-        )
-
-        st.success(
-            f"{ellipse_parameters['Group'].nunique()}化学組成グループ・"
-            f"{len(ellipse_parameters)}楕円を読み込みました。"
-        )
-
-        with st.expander("判別楕円パラメーターを確認する"):
-            st.dataframe(
-                ellipse_parameters,
-                hide_index=True,
-                width="stretch",
-            )
-if uploaded is not None and parameter_file is not None:
-    import numpy as np
-
-    calculation_data = data.copy()
-
-    elements = [
-        "K", "Ca", "Mn", "Fe", "Zn",
-        "Rb", "Sr", "Y", "Zr", "Nb",
-    ]
+if st.button(
+    "産地判別を実行",
+    type="primary",
+    disabled=not ready,
+):
 
     try:
-        # 元素値を数値として確認する
-        for element in elements:
-            column = f"{element}_ppm"
+        with st.spinner("判別楕円法による解析を実行しています..."):
 
-            if column not in calculation_data.columns:
-                raise ValueError(f"{column}列がありません。")
-
-            calculation_data[column] = pd.to_numeric(
-                calculation_data[column],
-                errors="raise",
+            # 測定データの読み込み
+            inputs = read_measurements(
+                measurement_file.getvalue()
             )
 
-        element_columns = [f"{e}_ppm" for e in elements]
-
-        if not np.isfinite(
-            calculation_data[element_columns].to_numpy(dtype=float)
-        ).all():
-            raise ValueError("元素値に空白や計算不能な値があります。")
-
-        denominator = calculation_data[
-            ["Rb_ppm", "Sr_ppm", "Y_ppm", "Zr_ppm"]
-        ].sum(axis=1)
-
-        if (denominator <= 0).any():
-            raise ValueError("Rb＋Sr＋Y＋Zrが0以下の測定があります。")
-
-        if calculation_data[
-            ["K_ppm", "Ca_ppm", "Fe_ppm"]
-        ].eq(0).any().any():
-            raise ValueError("K・Ca・Feが0のため、比を計算できません。")
-
-        with np.errstate(over="ignore", invalid="ignore"):
-            for element in ["Rb", "Sr", "Zr"]:
-                calculation_data[f"{element}*"] = (
-                    100 * calculation_data[f"{element}_ppm"]
-                    / denominator
-                )
-
-            calculation_data["100Fe/K"] = (
-                100 * calculation_data["Fe_ppm"]
-                / calculation_data["K_ppm"]
+            # 判別楕円パラメーターの読み込み
+            parameters = read_ellipse_parameters(
+                parameter_file.getvalue()
             )
 
-            calculation_data["K/Ca"] = (
-                calculation_data["K_ppm"]
-                / calculation_data["Ca_ppm"]
+            # 判別・得点・資料別集計・中央値
+            results = run_ellipse_analysis(
+                inputs,
+                parameters,
             )
 
-            calculation_data["100Mn/Fe"] = (
-                100 * calculation_data["Mn_ppm"]
-                / calculation_data["Fe_ppm"]
+            # 結果Excel
+            excel_bytes = export_results(
+                results,
+                inputs,
             )
 
-        indicator_columns = [
-            "Rb*", "Sr*", "Zr*",
-            "100Fe/K", "K/Ca", "100Mn/Fe",
-        ]
-
-        if not np.isfinite(
-            calculation_data[indicator_columns].to_numpy(dtype=float)
-        ).all():
-            raise ValueError("判別指標に計算不能な値があります。")
-
-    except Exception as exc:
-        st.error(f"指標を計算できませんでした：{exc}")
-        st.stop()
-
-    st.success("判別に使う6種類の指標を計算しました。")
-
-    with st.expander("判別指標を確認する"):
-        st.dataframe(
-            calculation_data[["sample"] + indicator_columns],
-            hide_index=True,
-            width="stretch",
-        )
-if uploaded is not None and parameter_file is not None:
-    import numpy as np
-
-    diagram_axes = {
-        1: ("Rb*", "Sr*"),
-        2: ("Rb*", "Zr*"),
-        3: ("Sr*", "Zr*"),
-        4: ("Sr*", "100Fe/K"),
-        5: ("Sr*", "K/Ca"),
-        6: ("Rb*", "100Mn/Fe"),
-    }
-
-    measurement_data = calculation_data.reset_index(drop=True).copy()
-
-    try:
-        parameters = ellipse_parameters.copy()
-        numeric_columns = ["Diagram", "x0", "y0", "a", "b", "theta"]
-        parameters[numeric_columns] = parameters[numeric_columns].apply(
-            pd.to_numeric, errors="raise"
-        )
-
-        if not np.isfinite(parameters[numeric_columns].to_numpy(dtype=float)).all():
-            raise ValueError("楕円パラメーターに空白や計算不能な値があります。")
-        if parameters[["a", "b"]].le(0).any().any():
-            raise ValueError("楕円の半軸長a・bは正の値にしてください。")
-
-        detail_frames = []
-
-        for group, group_parameters in parameters.groupby("Group", sort=False):
-            p = group_parameters.set_index("Diagram")
-            distances = []
-
-            for diagram, (x_name, y_name) in diagram_axes.items():
-                row = p.loc[diagram]
-                if (row["X"], row["Y"]) != (x_name, y_name):
-                    raise ValueError(f"{group}のD{diagram}のX・Yが一致しません。")
-
-                theta = np.deg2rad(row["theta"])
-                dx = measurement_data[x_name].to_numpy() - row["x0"]
-                dy = measurement_data[y_name].to_numpy() - row["y0"]
-                with np.errstate(over="ignore", invalid="ignore"):
-                    distance = np.hypot(
-                        (dx * np.cos(theta) + dy * np.sin(theta)) / row["a"],
-                        (-dx * np.sin(theta) + dy * np.cos(theta)) / row["b"],
-                    )
-                distances.append(distance)
-
-            distances = np.column_stack(distances)
-            inside = distances <= 1
-            valid = (
-                np.isfinite(distances).all(axis=1)
-                & inside[:, :3].all(axis=1)
-                & (distances[:, 3:] <= [3, 3, 5]).all(axis=1)
+            output_name = (
+                Path(measurement_file.name).stem
+                + "_ellipse_results.xlsx"
             )
 
-            frame = pd.DataFrame({
-                "測定No": np.arange(1, len(measurement_data) + 1),
-                "sample": measurement_data["sample"].to_numpy(),
-                "化学組成グループ": group,
-            })
-            for diagram in range(1, 7):
-                distance = distances[:, diagram - 1]
-                frame[f"D{diagram}規格化距離"] = np.where(
-                    np.isfinite(distance), distance, np.nan
-                )
-                frame[f"D{diagram}判定"] = np.where(
-                    ~np.isfinite(distance), "計算不能",
-                    np.where(inside[:, diagram - 1], "楕円内", "楕円外"),
-                )
-            frame["有効性"] = np.where(valid, "有効", "無効")
-            frame["得点"] = np.where(
-                valid, 7 + inside[:, 3:].sum(axis=1), np.nan
-            )
-            detail_frames.append(frame)
-
-        if not detail_frames:
-            raise ValueError("判別に使用できるパラメーターがありません。")
-
-        detail_results = pd.concat(detail_frames, ignore_index=True)
-        detail_results = detail_results.sort_values(
-            "測定No", kind="stable"
-        ).reset_index(drop=True)
-
-        measurement_results = measurement_data[
-            ["sample", "測定モード", "試料測定日時"]
-        ].copy()
-        measurement_results.insert(
-            0, "測定No", np.arange(1, len(measurement_data) + 1)
-        )
-        measurement_results["判別結果"] = "判定不能"
-        measurement_results["得点"] = np.nan
-        measurement_results["有効性"] = "判定不能"
-        measurement_results["_Groups"] = [()] * len(measurement_results)
-
-        valid_results = detail_results[detail_results["有効性"].eq("有効")]
-        for number, part in valid_results.groupby("測定No", sort=False):
-            score = int(part["得点"].max())
-            groups = tuple(
-                part.loc[part["得点"].eq(score), "化学組成グループ"]
-            )
-            index = number - 1
-            measurement_results.at[index, "判別結果"] = "・".join(groups)
-            measurement_results.at[index, "得点"] = score
-            measurement_results.at[index, "有効性"] = "有効"
-            measurement_results.at[index, "_Groups"] = groups
-
-    except Exception as exc:
-        st.error(f"判別できませんでした：{exc}")
-        st.stop()
-
-    st.success("測定ごとの判別が完了しました。")
-    st.dataframe(
-        measurement_results.drop(columns="_Groups"),
-        hide_index=True,
-        width="stretch",
-    )
-
-    with st.expander("化学組成グループ別の判別詳細を確認する"):
-        st.dataframe(detail_results, hide_index=True, width="stretch")
-if uploaded is not None and parameter_file is not None:
-    from collections import Counter
-
-    group_order = list(ellipse_parameters["Group"].unique())
-    summary_rows = []
-
-    for sample, part in measurement_results.groupby("sample", sort=False):
-        valid = part[part["有効性"].eq("有効")]
-        final_groups = ()
-        final_score = np.nan
-
-        if not valid.empty:
-            final_score = int(valid["得点"].max())
-            highest = valid[valid["得点"].eq(final_score)]
-
-            # 最高得点の測定結果に含まれるグループの出現回数
-            highest_counts = Counter(
-                group
-                for groups in highest["_Groups"]
-                for group in groups
-            )
-            maximum = max(highest_counts.values())
-            candidates = {
-                group for group, count in highest_counts.items()
-                if count == maximum
+            st.session_state["ellipse_result"] = {
+                "signature": signature,
+                "excel": excel_bytes,
+                "filename": output_name,
+                "sample_count": len(inputs.measurement_counts),
+                "measurement_count": len(inputs.measurements),
+                "group_count": parameters["Group"].nunique(),
+                "summaries": public_table(results.summaries),
+                "medians": results.medians,
+                "data": public_table(results.data),
             }
 
-            # 同数の場合は、残った候補だけを全有効測定で再比較
-            if len(candidates) > 1:
-                all_counts = Counter(
-                    group
-                    for groups in valid["_Groups"]
-                    for group in groups
-                )
-                maximum = max(all_counts[group] for group in candidates)
-                candidates = {
-                    group for group in candidates
-                    if all_counts[group] == maximum
-                }
+    except Exception as error:
+        st.session_state.pop("ellipse_result", None)
+        st.error("産地判別の処理中にエラーが発生しました。")
+        st.exception(error)
 
-            # 複合判定の表記順は、パラメーターのシート順
-            final_groups = tuple(
-                group for group in group_order if group in candidates
-            )
 
-        summary_rows.append({
-            "Sample": sample,
-            "最終判別結果": "・".join(final_groups) if final_groups else "判定不能",
-            "得点": final_score,
-            "測定データ数": len(part),
-            "有効測定数": len(valid),
-            "_Groups": final_groups,
-        })
+# --------------------------------------------------
+# 結果表示・ダウンロード
+# --------------------------------------------------
 
-    sample_summary = pd.DataFrame(summary_rows)
+saved = st.session_state.get("ellipse_result")
 
-    st.success("資料ごとの最終判別結果を集計しました。")
-    st.subheader("資料ごとの最終判別結果")
-    st.dataframe(
-        sample_summary.drop(columns="_Groups"),
-        hide_index=True,
-        width="stretch",
+if saved and saved["signature"] == signature:
+
+    st.success("産地判別が完了しました。")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric(
+        "資料数",
+        saved["sample_count"],
     )
-if uploaded is not None and parameter_file is not None:
-    median_elements = [
-        "K", "Ca", "Mn", "Fe", "Zn",
-        "Rb", "Sr", "Y", "Zr", "Nb",
-    ]
 
-    try:
-        median_rows = []
-        median_counts = []
-        selected = pd.Series(False, index=measurement_results.index)
+    col2.metric(
+        "測定データ数",
+        saved["measurement_count"],
+    )
 
-        for _, summary in sample_summary.iterrows():
-            # 資料IDが一致する測定を対象にする
-            mask = measurement_results["sample"].eq(summary["Sample"])
+    col3.metric(
+        "化学組成グループ数",
+        saved["group_count"],
+    )
 
-            if summary["最終判別結果"] != "判定不能":
-                final_groups = set(summary["_Groups"])
+    st.subheader("4．資料ごとの最終判別結果")
 
-                # 有効・最終得点と一致・最終グループのいずれかを含む
-                mask &= measurement_results["有効性"].eq("有効")
-                mask &= measurement_results["得点"].eq(summary["得点"])
-                mask &= measurement_results["_Groups"].map(
-                    lambda groups: bool(final_groups.intersection(groups))
-                )
+    st.dataframe(
+        saved["summaries"],
+        use_container_width=True,
+        hide_index=True,
+    )
 
-            # 判定不能の場合は、資料IDが一致する全測定を使用する
-            chosen = measurement_data.loc[mask]
-            if chosen.empty:
-                raise ValueError(
-                    f"{summary['Sample']}の中央値に使用できる測定がありません。"
-                )
+    st.subheader("5．元素別中央値")
 
-            selected |= mask
-            median_counts.append(len(chosen))
+    st.dataframe(
+        saved["medians"],
+        use_container_width=True,
+        hide_index=True,
+    )
 
-            row = {"Sample": summary["Sample"]}
-            for element in median_elements:
-                row[element] = chosen[f"{element}_ppm"].median()
-
-            row["主要判定結果"] = summary["最終判別結果"]
-            row["得点"] = summary["得点"]
-            row["中央値使用数"] = len(chosen)
-            median_rows.append(row)
-
-        median_results = pd.DataFrame(median_rows)
-        sample_summary["中央値使用数"] = median_counts
-        measurement_results["中央値使用"] = np.where(
-            selected, "使用", "除外"
-        )
-
-    except Exception as exc:
-        st.error(f"中央値を計算できませんでした：{exc}")
-        st.stop()
-
-    st.success("資料ごとの中央値を計算しました。")
-    st.subheader("資料ごとの中央値（ppm）")
-    st.dataframe(median_results, hide_index=True, width="stretch")
-
-    with st.expander("中央値への使用・除外を確認する"):
+    with st.expander("測定ごとの判別結果を表示"):
         st.dataframe(
-            measurement_results.drop(columns="_Groups"),
+            saved["data"],
+            use_container_width=True,
             hide_index=True,
-            width="stretch",
         )
-if uploaded is not None and parameter_file is not None:
-    from datetime import datetime
-    from io import BytesIO
-    from pathlib import Path
-    from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.utils import get_column_letter
 
-    def format_result_table(sheet, frame, header_row=1, first_col=1):
-        # 表示形式だけを設定し、数値自体の精度は保持する
-        last_col = first_col + len(frame.columns) - 1
-        last_row = header_row + len(frame)
-        for cells in sheet.iter_rows(
-            min_row=header_row, max_row=last_row,
-            min_col=first_col, max_col=last_col,
-        ):
-            for cell in cells:
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-                if isinstance(cell.value, str):
-                    # 資料名などは、数式にせず文字列のまま保存する
-                    cell.data_type = "s"
-                if cell.row == header_row:
-                    cell.fill = PatternFill("solid", fgColor="365F91")
-                    cell.font = Font(color="FFFFFF", bold=True)
-                elif isinstance(cell.value, datetime):
-                    cell.number_format = "yyyy-mm-dd hh:mm"
-                elif isinstance(cell.value, float):
-                    header = sheet.cell(header_row, cell.column).value
-                    cell.number_format = "0" if header == "得点" else "0.0000"
+    st.subheader("6．Excelファイルのダウンロード")
 
-        for index, name in enumerate(frame.columns, start=first_col):
-            values = [str(name)] + [
-                str(v) for v in frame[name].dropna().head(100)
-            ]
-            width = max(14, min(32, max(len(v) for v in values) * 1.5 + 2))
-            sheet.column_dimensions[get_column_letter(index)].width = width
-
-        sheet.freeze_panes = sheet.cell(header_row + 1, first_col + 1).coordinate
-        sheet.auto_filter.ref = (
-            f"{get_column_letter(first_col)}{header_row}:"
-            f"{get_column_letter(last_col)}{last_row}"
-        )
-        sheet.sheet_view.showGridLines = False
-
-    try:
-        result_buffer = BytesIO()
-
-        # 元のExcelと同じ元素・指標の列配置で測定結果を保存する
-        data_export = pd.DataFrame({
-            "測定No": measurement_results["測定No"],
-            "Sample": measurement_data["sample"],
-            "Method": measurement_data["測定モード"],
-            "Date": measurement_data["試料測定日時"],
-        })
-        for element in median_elements:
-            data_export[element] = measurement_data[f"{element}_ppm"]
-        for name in ["Rb*", "Sr*", "Zr*", "K/Ca", "100Fe/K", "100Mn/Fe"]:
-            data_export[name] = measurement_data[name]
-        data_export["資料ID"] = data_export["Sample"]
-        data_export["資料内測定No"] = (
-            data_export.groupby("Sample", sort=False).cumcount() + 1
-        )
-        for name in ["判別結果", "得点", "有効性", "中央値使用"]:
-            data_export[name] = measurement_results[name]
-        if "sample_元表記" in measurement_data.columns:
-            data_export["sample_元表記"] = measurement_data["sample_元表記"]
-
-        summary_export = sample_summary.drop(columns="_Groups")
-        detail_export = detail_results.rename(columns={"sample": "Sample"})
-
-        with pd.ExcelWriter(result_buffer, engine="openpyxl") as writer:
-            # 資料別の最終判別結果
-            summary_export.to_excel(
-                writer, sheet_name="RESULTS", index=False, startcol=1
-            )
-            format_result_table(writer.sheets["RESULTS"], summary_export, first_col=2)
-
-            # B3にSample、C3:L3に10元素、M3に判定結果、N3に得点
-            median_results.to_excel(
-                writer, sheet_name="Median", index=False, startrow=2, startcol=1
-            )
-            median_sheet = writer.sheets["Median"]
-            format_result_table(median_sheet, median_results, header_row=3, first_col=2)
-            for column in range(3, 13):
-                median_sheet.cell(1, column, "Median")
-                median_sheet.cell(2, column, "ppm")
-
-            data_export.to_excel(writer, sheet_name="DATA", index=False, startrow=1)
-            format_result_table(writer.sheets["DATA"], data_export, header_row=2)
-
-            detail_export.to_excel(writer, sheet_name="判別詳細", index=False)
-            format_result_table(writer.sheets["判別詳細"], detail_export)
-
-            # 入力値と資料IDの元表記を残す
-            data.to_excel(writer, sheet_name="定量値", index=False)
-            format_result_table(writer.sheets["定量値"], data)
-
-            # QC補正係数は保存するだけで、定量値に再適用しない
-            with pd.ExcelFile(BytesIO(uploaded.getvalue()), engine="openpyxl") as source:
-                if "QC補正係数" in source.sheet_names:
-                    qc_export = pd.read_excel(source, sheet_name="QC補正係数")
-                    qc_export.to_excel(writer, sheet_name="QC補正係数", index=False)
-                    format_result_table(writer.sheets["QC補正係数"], qc_export)
-
-            # クラスター法で読み込めるよう、L4:T10にパラメーターを保存する
-            parameter_export_columns = [
-                "Diagram", "Group", "X", "Y",
-                "x0", "y0", "a", "b", "theta",
-            ]
-            for group, part in parameters.groupby("Group", sort=False):
-                if group in writer.book.sheetnames:
-                    raise ValueError(f"グループ名「{group}」が出力シート名と重複しています。")
-                part = part[parameter_export_columns].sort_values("Diagram")
-                part.to_excel(
-                    writer, sheet_name=group, index=False,
-                    startrow=3, startcol=11,
-                )
-                sheet = writer.sheets[group]
-                sheet["L3"] = group
-                format_result_table(sheet, part, header_row=4, first_col=12)
-                sheet.freeze_panes = "A5"
-                for cells in sheet.iter_rows(
-                    min_row=5, max_row=10, min_col=16, max_col=20
-                ):
-                    for cell in cells:
-                        cell.number_format = "0.00000000"
-
-        excel_bytes = result_buffer.getvalue()
-        output_name = f"{Path(uploaded.name).stem}_ellipse_results.xlsx"
-
-    except Exception as exc:
-        st.error(f"結果Excelを作成できませんでした：{exc}")
-        st.stop()
-
-    st.success("結果Excelを作成しました。")
     st.download_button(
-        label="結果Excelをダウンロード",
-        data=excel_bytes,
-        file_name=output_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        on_click="ignore",
+        label="判別結果Excelをダウンロード",
+        data=saved["excel"],
+        file_name=saved["filename"],
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        type="primary",
     )
