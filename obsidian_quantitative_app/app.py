@@ -13,7 +13,7 @@ st.set_page_config(
 
 st.title("NEX DE 定量計算")
 st.write(
-    "NEX DEの強度データから元素定量値を計算し，"
+    "NEX DEの強度データから定量値を計算し，"
     "Excelファイルとして出力します。"
 )
 
