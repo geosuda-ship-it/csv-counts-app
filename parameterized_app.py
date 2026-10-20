@@ -9,12 +9,12 @@ EXCEL_MIME = (
 )
 
 st.set_page_config(
-    page_title="NEX DEから出力したCSV形式の測定結果ファイルから定量値をまとめる",
+    page_title="NEX DE 強度データの定量計算",
     page_icon="🧪",
     layout="centered",
 )
 
-st.title("NEX DEから出力したCSV形式の測定結果ファイルから定量値をまとめる")
+st.title("NEX DE 強度データの定量計算")
 st.write(
     "NEX DEから出力したCSV形式の測定結果ファイルと、"
     "機関ごとの定量計算パラメーターファイルをアップロードすると、"
