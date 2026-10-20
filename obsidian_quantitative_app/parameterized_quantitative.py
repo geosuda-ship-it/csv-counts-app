@@ -791,3 +791,142 @@ def create_quantitative_excel(
         "output_row_count": len(corrected_rows),
         "missing_dates": missing_dates,
     }
+
+def create_multi_quantitative_excel(
+    csv_files: dict[str, bytes],
+    parameter_content: bytes,
+    parameter_name: str = "",
+) -> dict:
+    """複数のCSVを独立計算し，定量値1シートに統合する。"""
+
+    if not csv_files:
+        raise ValueError("CSVファイルが選択されていません。")
+
+    if not parameter_content:
+        raise ValueError("定量計算パラメーターが空です。")
+
+    parameters = load_calculation_parameters(parameter_content)
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "定量値"
+
+    sheet.append([
+        "sample",
+        "測定モード",
+        "試料測定日時",
+        *[f"{element}_ppm" for element in QUANT_ELEMENTS],
+        "入力ファイル名",
+        "QC番号",
+        "QC測定日時",
+    ])
+
+    warnings = []
+    output_row_count = 0
+
+    with _CONVERSION_LOCK:
+        apply_calculation_parameters(parameters)
+
+        for csv_name, csv_bytes in sorted(csv_files.items()):
+
+            if Path(csv_name).suffix.lower() != ".csv":
+                raise ValueError(
+                    f"{csv_name} はCSVファイルではありません。"
+                )
+
+            if not csv_bytes:
+                raise ValueError(
+                    f"{csv_name} が空です。"
+                )
+
+            try:
+                measurements = extract_measurements(csv_bytes)
+
+                coefficients, corrected_rows, missing_dates = (
+                    calculate_all(measurements)
+                )
+
+            except (ValueError, KeyError, ZeroDivisionError) as error:
+                raise ValueError(
+                    f"{csv_name} の計算に失敗しました：{error}"
+                ) from error
+
+            for row in corrected_rows:
+                sample = row["sample"]
+
+                # 資料IDの先頭アポストロフィを除去
+                sample_id = (
+                    str(sample["sample"])
+                    .strip()
+                    .lstrip("'")
+                    .strip()
+                )
+
+                if not sample_id:
+                    raise ValueError(
+                        f"{csv_name} に空の資料IDがあります。"
+                    )
+
+                quantitative = row["quantitative"]
+
+                sheet.append([
+                    sample_id,
+                    sample["mode"],
+                    sample["measured_at"],
+                    *[
+                        quantitative[element]
+                        for element in QUANT_ELEMENTS
+                    ],
+                    csv_name,
+                    row["qc_number"],
+                    row["qc"]["measured_at"],
+                ])
+
+                # 資料ID等は文字列として保持
+                for column in (1, 2, 14):
+                    sheet.cell(
+                        sheet.max_row, column
+                    ).data_type = "s"
+
+                output_row_count += 1
+
+            for missing_date in missing_dates:
+                warnings.append((
+                    csv_name,
+                    missing_date,
+                    "同日のQCがないため，測定結果を除外しました。",
+                ))
+
+    # Excelの書式設定
+    style_sheet(
+        sheet,
+        datetime_columns=("C", "P"),
+    )
+
+    for row in sheet.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+            )
+
+        for cell in row[3:13]:
+            cell.number_format = "0.000"
+
+    sheet.column_dimensions["A"].width = 22
+    sheet.column_dimensions["C"].width = 22
+    sheet.column_dimensions["N"].width = 24
+    sheet.column_dimensions["P"].width = 22
+
+    workbook.active = 0
+
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+
+    return {
+        "content": output.getvalue(),
+        "file_count": len(csv_files),
+        "output_row_count": output_row_count,
+        "warnings": warnings,
+    }
