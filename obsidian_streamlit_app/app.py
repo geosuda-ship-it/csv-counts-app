@@ -69,7 +69,7 @@ def show_table(frame):
 def main():
     st.set_page_config(page_title="Obsidian EDXRF Clustering", page_icon="🔬", layout="wide")
     st.title("クラスター法による黒曜石の化学組成グループ候補の評価")
-    st.write("各資料の代表値と各化学組成グループの判別楕円のパラメーターを含むExcelファイルをアップロードしてください。")
+    st.write("各資料の代表値と各化学組成グループの判別楕円のパラメーターを含むExcelファイル（_定量値_ellipse_results.xlsx）をアップロードしてください。")
    
     uploaded = st.file_uploader("Excelファイル", type=["xlsx"])
     
