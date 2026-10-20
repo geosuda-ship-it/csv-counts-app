@@ -423,3 +423,67 @@ if uploaded is not None and parameter_file is not None:
         hide_index=True,
         width="stretch",
     )
+if uploaded is not None and parameter_file is not None:
+    median_elements = [
+        "K", "Ca", "Mn", "Fe", "Zn",
+        "Rb", "Sr", "Y", "Zr", "Nb",
+    ]
+
+    try:
+        median_rows = []
+        median_counts = []
+        selected = pd.Series(False, index=measurement_results.index)
+
+        for _, summary in sample_summary.iterrows():
+            # 資料IDが一致する測定を対象にする
+            mask = measurement_results["sample"].eq(summary["Sample"])
+
+            if summary["最終判別結果"] != "判定不能":
+                final_groups = set(summary["_Groups"])
+
+                # 有効・最終得点と一致・最終グループのいずれかを含む
+                mask &= measurement_results["有効性"].eq("有効")
+                mask &= measurement_results["得点"].eq(summary["得点"])
+                mask &= measurement_results["_Groups"].map(
+                    lambda groups: bool(final_groups.intersection(groups))
+                )
+
+            # 判定不能の場合は、資料IDが一致する全測定を使用する
+            chosen = measurement_data.loc[mask]
+            if chosen.empty:
+                raise ValueError(
+                    f"{summary['Sample']}の中央値に使用できる測定がありません。"
+                )
+
+            selected |= mask
+            median_counts.append(len(chosen))
+
+            row = {"Sample": summary["Sample"]}
+            for element in median_elements:
+                row[element] = chosen[f"{element}_ppm"].median()
+
+            row["主要判定結果"] = summary["最終判別結果"]
+            row["得点"] = summary["得点"]
+            row["中央値使用数"] = len(chosen)
+            median_rows.append(row)
+
+        median_results = pd.DataFrame(median_rows)
+        sample_summary["中央値使用数"] = median_counts
+        measurement_results["中央値使用"] = np.where(
+            selected, "使用", "除外"
+        )
+
+    except Exception as exc:
+        st.error(f"中央値を計算できませんでした：{exc}")
+        st.stop()
+
+    st.success("資料ごとの中央値を計算しました。")
+    st.subheader("資料ごとの中央値（ppm）")
+    st.dataframe(median_results, hide_index=True, width="stretch")
+
+    with st.expander("中央値への使用・除外を確認する"):
+        st.dataframe(
+            measurement_results.drop(columns="_Groups"),
+            hide_index=True,
+            width="stretch",
+        )
