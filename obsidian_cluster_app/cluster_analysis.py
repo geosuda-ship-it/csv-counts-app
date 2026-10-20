@@ -824,7 +824,11 @@ def run_analysis(
 
 
 
-def export_results_xlsx(results: AnalysisResults, output_path: str | Path) -> Path:
+def export_results_xlsx(
+    results: AnalysisResults,
+    output_path: str | Path,
+    input_path: str | Path | None = None,
+) -> Path:
 
     from openpyxl.styles import Font, PatternFill, Alignment
 
@@ -853,6 +857,50 @@ def export_results_xlsx(results: AnalysisResults, output_path: str | Path) -> Pa
 
 
         workbook = writer.book
+
+        # 入力ExcelのMedianシートを結果Excelにコピー
+        if input_path is not None:
+            from copy import copy
+
+            source_book = openpyxl.load_workbook(
+                input_path, data_only=True
+            )
+            try:
+                source = source_book["Median"]
+                target = workbook.create_sheet(
+                    "Sample_ellipse_Results"
+                )
+
+                for row in source.iter_rows():
+                    for cell in row:
+                        new_cell = target.cell(
+                            row=cell.row,
+                            column=cell.column,
+                            value=cell.value,
+                        )
+
+                        if cell.has_style:
+                            new_cell.font = copy(cell.font)
+                            new_cell.fill = copy(cell.fill)
+                            new_cell.border = copy(cell.border)
+                            new_cell.alignment = copy(cell.alignment)
+                            new_cell.number_format = cell.number_format
+                            new_cell.protection = copy(cell.protection)
+
+                for key, dimension in source.column_dimensions.items():
+                    target.column_dimensions[key].width = dimension.width
+
+                for key, dimension in source.row_dimensions.items():
+                    target.row_dimensions[key].height = dimension.height
+
+                for area in source.merged_cells.ranges:
+                    target.merge_cells(str(area))
+
+                target.freeze_panes = source.freeze_panes
+                target.auto_filter.ref = source.auto_filter.ref
+
+            finally:
+                source_book.close()
 
         title_fill = PatternFill("solid", fgColor="1F4E78")
 
