@@ -155,3 +155,89 @@ if uploaded is not None:
                 hide_index=True,
                 width="stretch",
             )
+if uploaded is not None and parameter_file is not None:
+    import numpy as np
+
+    calculation_data = data.copy()
+
+    elements = [
+        "K", "Ca", "Mn", "Fe", "Zn",
+        "Rb", "Sr", "Y", "Zr", "Nb",
+    ]
+
+    try:
+        # 元素値を数値として確認する
+        for element in elements:
+            column = f"{element}_ppm"
+
+            if column not in calculation_data.columns:
+                raise ValueError(f"{column}列がありません。")
+
+            calculation_data[column] = pd.to_numeric(
+                calculation_data[column],
+                errors="raise",
+            )
+
+        element_columns = [f"{e}_ppm" for e in elements]
+
+        if not np.isfinite(
+            calculation_data[element_columns].to_numpy(dtype=float)
+        ).all():
+            raise ValueError("元素値に空白や計算不能な値があります。")
+
+        denominator = calculation_data[
+            ["Rb_ppm", "Sr_ppm", "Y_ppm", "Zr_ppm"]
+        ].sum(axis=1)
+
+        if (denominator <= 0).any():
+            raise ValueError("Rb＋Sr＋Y＋Zrが0以下の測定があります。")
+
+        if calculation_data[
+            ["K_ppm", "Ca_ppm", "Fe_ppm"]
+        ].eq(0).any().any():
+            raise ValueError("K・Ca・Feが0のため、比を計算できません。")
+
+        with np.errstate(over="ignore", invalid="ignore"):
+            for element in ["Rb", "Sr", "Zr"]:
+                calculation_data[f"{element}*"] = (
+                    100 * calculation_data[f"{element}_ppm"]
+                    / denominator
+                )
+
+            calculation_data["100Fe/K"] = (
+                100 * calculation_data["Fe_ppm"]
+                / calculation_data["K_ppm"]
+            )
+
+            calculation_data["K/Ca"] = (
+                calculation_data["K_ppm"]
+                / calculation_data["Ca_ppm"]
+            )
+
+            calculation_data["100Mn/Fe"] = (
+                100 * calculation_data["Mn_ppm"]
+                / calculation_data["Fe_ppm"]
+            )
+
+        indicator_columns = [
+            "Rb*", "Sr*", "Zr*",
+            "100Fe/K", "K/Ca", "100Mn/Fe",
+        ]
+
+        if not np.isfinite(
+            calculation_data[indicator_columns].to_numpy(dtype=float)
+        ).all():
+            raise ValueError("判別指標に計算不能な値があります。")
+
+    except Exception as exc:
+        st.error(f"指標を計算できませんでした：{exc}")
+        st.stop()
+
+    st.success("判別に使う6種類の指標を計算しました。")
+
+    with st.expander("判別指標を確認する"):
+        st.dataframe(
+            calculation_data[["sample"] + indicator_columns],
+            hide_index=True,
+            width="stretch",
+        )
