@@ -9,7 +9,7 @@ EXCEL_MIME = (
 )
 
 st.set_page_config(
-    page_title="STEP 1　強度データから定量値を作成する",
+    page_title="NEX DEから出力したCSV形式の測定結果ファイルから定量値を作成する",
     page_icon="🧪",
     layout="centered",
 )
