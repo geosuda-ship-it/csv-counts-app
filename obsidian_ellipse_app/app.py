@@ -487,3 +487,144 @@ if uploaded is not None and parameter_file is not None:
             hide_index=True,
             width="stretch",
         )
+if uploaded is not None and parameter_file is not None:
+    from datetime import datetime
+    from io import BytesIO
+    from pathlib import Path
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    def format_result_table(sheet, frame, header_row=1, first_col=1):
+        # 表示形式だけを設定し、数値自体の精度は保持する
+        last_col = first_col + len(frame.columns) - 1
+        last_row = header_row + len(frame)
+        for cells in sheet.iter_rows(
+            min_row=header_row, max_row=last_row,
+            min_col=first_col, max_col=last_col,
+        ):
+            for cell in cells:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                if isinstance(cell.value, str):
+                    # 資料名などは、数式にせず文字列のまま保存する
+                    cell.data_type = "s"
+                if cell.row == header_row:
+                    cell.fill = PatternFill("solid", fgColor="365F91")
+                    cell.font = Font(color="FFFFFF", bold=True)
+                elif isinstance(cell.value, datetime):
+                    cell.number_format = "yyyy-mm-dd hh:mm"
+                elif isinstance(cell.value, float):
+                    header = sheet.cell(header_row, cell.column).value
+                    cell.number_format = "0" if header == "得点" else "0.0000"
+
+        for index, name in enumerate(frame.columns, start=first_col):
+            values = [str(name)] + [
+                str(v) for v in frame[name].dropna().head(100)
+            ]
+            width = max(14, min(32, max(len(v) for v in values) * 1.5 + 2))
+            sheet.column_dimensions[get_column_letter(index)].width = width
+
+        sheet.freeze_panes = sheet.cell(header_row + 1, first_col + 1).coordinate
+        sheet.auto_filter.ref = (
+            f"{get_column_letter(first_col)}{header_row}:"
+            f"{get_column_letter(last_col)}{last_row}"
+        )
+        sheet.sheet_view.showGridLines = False
+
+    try:
+        result_buffer = BytesIO()
+
+        # 元のExcelと同じ元素・指標の列配置で測定結果を保存する
+        data_export = pd.DataFrame({
+            "測定No": measurement_results["測定No"],
+            "Sample": measurement_data["sample"],
+            "Method": measurement_data["測定モード"],
+            "Date": measurement_data["試料測定日時"],
+        })
+        for element in median_elements:
+            data_export[element] = measurement_data[f"{element}_ppm"]
+        for name in ["Rb*", "Sr*", "Zr*", "K/Ca", "100Fe/K", "100Mn/Fe"]:
+            data_export[name] = measurement_data[name]
+        data_export["資料ID"] = data_export["Sample"]
+        data_export["資料内測定No"] = (
+            data_export.groupby("Sample", sort=False).cumcount() + 1
+        )
+        for name in ["判別結果", "得点", "有効性", "中央値使用"]:
+            data_export[name] = measurement_results[name]
+        if "sample_元表記" in measurement_data.columns:
+            data_export["sample_元表記"] = measurement_data["sample_元表記"]
+
+        summary_export = sample_summary.drop(columns="_Groups")
+        detail_export = detail_results.rename(columns={"sample": "Sample"})
+
+        with pd.ExcelWriter(result_buffer, engine="openpyxl") as writer:
+            # 資料別の最終判別結果
+            summary_export.to_excel(
+                writer, sheet_name="RESULTS", index=False, startcol=1
+            )
+            format_result_table(writer.sheets["RESULTS"], summary_export, first_col=2)
+
+            # B3にSample、C3:L3に10元素、M3に判定結果、N3に得点
+            median_results.to_excel(
+                writer, sheet_name="Median", index=False, startrow=2, startcol=1
+            )
+            median_sheet = writer.sheets["Median"]
+            format_result_table(median_sheet, median_results, header_row=3, first_col=2)
+            for column in range(3, 13):
+                median_sheet.cell(1, column, "Median")
+                median_sheet.cell(2, column, "ppm")
+
+            data_export.to_excel(writer, sheet_name="DATA", index=False, startrow=1)
+            format_result_table(writer.sheets["DATA"], data_export, header_row=2)
+
+            detail_export.to_excel(writer, sheet_name="判別詳細", index=False)
+            format_result_table(writer.sheets["判別詳細"], detail_export)
+
+            # 入力値と資料IDの元表記を残す
+            data.to_excel(writer, sheet_name="定量値", index=False)
+            format_result_table(writer.sheets["定量値"], data)
+
+            # QC補正係数は保存するだけで、定量値に再適用しない
+            with pd.ExcelFile(BytesIO(uploaded.getvalue()), engine="openpyxl") as source:
+                if "QC補正係数" in source.sheet_names:
+                    qc_export = pd.read_excel(source, sheet_name="QC補正係数")
+                    qc_export.to_excel(writer, sheet_name="QC補正係数", index=False)
+                    format_result_table(writer.sheets["QC補正係数"], qc_export)
+
+            # クラスター法で読み込めるよう、L4:T10にパラメーターを保存する
+            parameter_export_columns = [
+                "Diagram", "Group", "X", "Y",
+                "x0", "y0", "a", "b", "theta",
+            ]
+            for group, part in parameters.groupby("Group", sort=False):
+                if group in writer.book.sheetnames:
+                    raise ValueError(f"グループ名「{group}」が出力シート名と重複しています。")
+                part = part[parameter_export_columns].sort_values("Diagram")
+                part.to_excel(
+                    writer, sheet_name=group, index=False,
+                    startrow=3, startcol=11,
+                )
+                sheet = writer.sheets[group]
+                sheet["L3"] = group
+                format_result_table(sheet, part, header_row=4, first_col=12)
+                sheet.freeze_panes = "A5"
+                for cells in sheet.iter_rows(
+                    min_row=5, max_row=10, min_col=16, max_col=20
+                ):
+                    for cell in cells:
+                        cell.number_format = "0.00000000"
+
+        excel_bytes = result_buffer.getvalue()
+        output_name = f"{Path(uploaded.name).stem}_ellipse_results.xlsx"
+
+    except Exception as exc:
+        st.error(f"結果Excelを作成できませんでした：{exc}")
+        st.stop()
+
+    st.success("結果Excelを作成しました。")
+    st.download_button(
+        label="結果Excelをダウンロード",
+        data=excel_bytes,
+        file_name=output_name,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        on_click="ignore",
+    )
