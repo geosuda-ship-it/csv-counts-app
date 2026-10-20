@@ -360,3 +360,66 @@ if uploaded is not None and parameter_file is not None:
 
     with st.expander("化学組成グループ別の判別詳細を確認する"):
         st.dataframe(detail_results, hide_index=True, width="stretch")
+if uploaded is not None and parameter_file is not None:
+    from collections import Counter
+
+    group_order = list(ellipse_parameters["Group"].unique())
+    summary_rows = []
+
+    for sample, part in measurement_results.groupby("sample", sort=False):
+        valid = part[part["有効性"].eq("有効")]
+        final_groups = ()
+        final_score = np.nan
+
+        if not valid.empty:
+            final_score = int(valid["得点"].max())
+            highest = valid[valid["得点"].eq(final_score)]
+
+            # 最高得点の測定結果に含まれるグループの出現回数
+            highest_counts = Counter(
+                group
+                for groups in highest["_Groups"]
+                for group in groups
+            )
+            maximum = max(highest_counts.values())
+            candidates = {
+                group for group, count in highest_counts.items()
+                if count == maximum
+            }
+
+            # 同数の場合は、残った候補だけを全有効測定で再比較
+            if len(candidates) > 1:
+                all_counts = Counter(
+                    group
+                    for groups in valid["_Groups"]
+                    for group in groups
+                )
+                maximum = max(all_counts[group] for group in candidates)
+                candidates = {
+                    group for group in candidates
+                    if all_counts[group] == maximum
+                }
+
+            # 複合判定の表記順は、パラメーターのシート順
+            final_groups = tuple(
+                group for group in group_order if group in candidates
+            )
+
+        summary_rows.append({
+            "Sample": sample,
+            "最終判別結果": "・".join(final_groups) if final_groups else "判定不能",
+            "得点": final_score,
+            "測定データ数": len(part),
+            "有効測定数": len(valid),
+            "_Groups": final_groups,
+        })
+
+    sample_summary = pd.DataFrame(summary_rows)
+
+    st.success("資料ごとの最終判別結果を集計しました。")
+    st.subheader("資料ごとの最終判別結果")
+    st.dataframe(
+        sample_summary.drop(columns="_Groups"),
+        hide_index=True,
+        width="stretch",
+    )
