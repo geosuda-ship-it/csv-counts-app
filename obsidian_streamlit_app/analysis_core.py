@@ -10,13 +10,20 @@ from sklearn.preprocessing import StandardScaler
 import hdbscan
 
 
-MEDIAN_REQUIRED = ["Sample", "Rb", "Sr", "Y", "Zr"]
+MEDIAN_ELEMENTS = ["K", "Ca", "Mn", "Fe", "Rb", "Sr", "Y", "Zr"]
+MEDIAN_REQUIRED = ["Sample"] + MEDIAN_ELEMENTS
 PARAMETER_HEADERS = ["Diagram", "Group", "X", "Y", "x0", "y0", "a", "b", "theta"]
-DIAGRAMS = {
+EVALUATION_DIAGRAMS = {
     1: ("Rb*", "Sr*"),
     2: ("Rb*", "Zr*"),
     3: ("Sr*", "Zr*"),
+    4: ("Sr*", "100Fe/K"),
+    5: ("Sr*", "K/Ca"),
+    6: ("Rb*", "100Mn/Fe"),
 }
+CLUSTER_DIAGRAMS = {d: EVALUATION_DIAGRAMS[d] for d in (1, 2, 3)}
+# 既存の画面で使う散布図はD1〜D3
+DIAGRAMS = CLUSTER_DIAGRAMS
 
 
 def _cluster_sort_key(value: str):
@@ -44,7 +51,7 @@ def _clean_header(value) -> str:
 
 
 def load_workbook_inputs(path: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
-    """Read Median and D1-D3 ellipse parameters from one calculated Excel workbook."""
+    """Read Median and D1-D6 ellipse parameters from one calculated Excel workbook."""
     path = Path(path)
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
@@ -70,7 +77,7 @@ def load_workbook_inputs(path: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, 
         if median.empty:
             raise ValueError(
                 "Medianシートに計算済みの資料データがありません。"
-                "Excelで再計算して保存してからアップロードしてください。"
+                "判別楕円法で出力したExcelのMedianシートを確認してください。"
             )
 
         median["Sample"] = median["Sample"].astype(str).str.strip()
@@ -78,12 +85,12 @@ def load_workbook_inputs(path: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, 
         if duplicates:
             raise ValueError("Medianシートに重複した資料IDがあります: " + ", ".join(duplicates[:20]))
 
-        for column in ["Rb", "Sr", "Y", "Zr"]:
+        for column in MEDIAN_ELEMENTS:
             median[column] = pd.to_numeric(median[column], errors="coerce")
-        invalid = median[median[["Rb", "Sr", "Y", "Zr"]].isna().any(axis=1)]["Sample"].tolist()
+        invalid = median.loc[~np.isfinite(median[MEDIAN_ELEMENTS].to_numpy(dtype=float)).all(axis=1), "Sample"].tolist()
         if invalid:
             raise ValueError(
-                "MedianシートのRb、Sr、Y、Zrに未計算または非数値があります: "
+                "MedianシートのK、Ca、Mn、Fe、Rb、Sr、Y、Zrに未計算・非数値または無限大があります: "
                 + ", ".join(invalid[:20])
             )
 
@@ -92,7 +99,7 @@ def load_workbook_inputs(path: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, 
         group_order = []
         for sheet_name in wb.sheetnames[start_index:]:
             gws = wb[sheet_name]
-            parameter_values = list(gws.iter_rows(min_row=4, max_row=7, min_col=12, max_col=20, values_only=True))
+            parameter_values = list(gws.iter_rows(min_row=4, max_row=10, min_col=12, max_col=20, values_only=True))
             found_headers = [_clean_header(value) for value in parameter_values[0]]
             if found_headers != PARAMETER_HEADERS:
                 continue
@@ -104,13 +111,16 @@ def load_workbook_inputs(path: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, 
                 row["Source_Sheet"] = sheet_name
                 parameter_rows.append(row)
                 try:
-                    diagram = int(row["Diagram"])
+                    raw_diagram = row["Diagram"]
+                    diagram = int(raw_diagram)
+                    if isinstance(raw_diagram, bool) or float(raw_diagram) != diagram:
+                        raise ValueError("Diagramは整数で指定してください。")
                 except Exception as exc:
                     raise ValueError(f"{sheet_name}!L{row_num}: Diagramが数値ではありません。") from exc
                 seen_diagrams.append(diagram)
-                if diagram not in DIAGRAMS:
-                    raise ValueError(f"{sheet_name}!L{row_num}: Diagramは1、2、3のいずれかである必要があります。")
-                expected_pair = DIAGRAMS[diagram]
+                if diagram not in EVALUATION_DIAGRAMS:
+                    raise ValueError(f"{sheet_name}!L{row_num}: Diagramは1〜6のいずれかである必要があります。")
+                expected_pair = EVALUATION_DIAGRAMS[diagram]
                 if (row["X"], row["Y"]) != expected_pair:
                     raise ValueError(
                         f"{sheet_name} D{diagram}: X、Yは{expected_pair[0]}、{expected_pair[1]}である必要があります。"
@@ -129,13 +139,13 @@ def load_workbook_inputs(path: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, 
                 for variable, center_name in [(row["X"], "x0"), (row["Y"], "y0")]:
                     center = row[center_name]
                     if variable in centers and not np.isclose(centers[variable], center, atol=1e-8):
-                        raise ValueError(f"{sheet_name}: D1-D3間で{variable}の中心値が一致しません。")
+                        raise ValueError(f"{sheet_name}: D1〜D6間で{variable}の中心値が一致しません。")
                     centers[variable] = center
-            if sorted(seen_diagrams) != [1, 2, 3]:
-                raise ValueError(f"{sheet_name}: D1-D3が揃っていません。")
+            if sorted(seen_diagrams) != [1, 2, 3, 4, 5, 6]:
+                raise ValueError(f"{sheet_name}: D1〜D6が揃っていません。")
 
         if not parameter_rows:
-            raise ValueError("AS-1以降からD1-D3の判別楕円パラメータを読み取れませんでした。")
+            raise ValueError("AS-1以降からD1〜D6の判別楕円パラメーターを読み取れませんでした。")
         parameters = pd.DataFrame(parameter_rows)
         parameters = parameters[["Source_Sheet"] + PARAMETER_HEADERS]
         duplicate_keys = parameters.duplicated(["Group", "Diagram"], keep=False)
@@ -157,6 +167,18 @@ def calculate_star_values(median: pd.DataFrame) -> pd.DataFrame:
     result["Rb*"] = 100.0 * result["Rb"] / denominator
     result["Sr*"] = 100.0 * result["Sr"] / denominator
     result["Zr*"] = 100.0 * result["Zr"] / denominator
+    zero_denominator = result[["K", "Ca", "Fe"]].eq(0).any(axis=1)
+    if zero_denominator.any():
+        samples = result.loc[zero_denominator, "Sample"].astype(str).tolist()
+        raise ValueError("K、Ca、Feが0のためD4〜D6の指標を計算できません: " + ", ".join(samples[:20]))
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        result["100Fe/K"] = 100.0 * result["Fe"] / result["K"]
+        result["K/Ca"] = result["K"] / result["Ca"]
+        result["100Mn/Fe"] = 100.0 * result["Mn"] / result["Fe"]
+    features = ["Rb*", "Sr*", "Zr*", "100Fe/K", "K/Ca", "100Mn/Fe"]
+    bad = ~np.isfinite(result[features].to_numpy(dtype=float)).all(axis=1)
+    if bad.any():
+        raise ValueError("判別指標に計算不能な値があります: " + ", ".join(result.loc[bad, "Sample"].astype(str).tolist()[:20]))
     return result
 
 
@@ -203,7 +225,7 @@ def calculate_cluster_ellipses(clustered: pd.DataFrame, confidence: float = 0.95
     )
     for cluster in clusters:
         members = clustered[clustered["Cluster"] == cluster]
-        for diagram, (x_name, y_name) in DIAGRAMS.items():
+        for diagram, (x_name, y_name) in CLUSTER_DIAGRAMS.items():
             points = members[[x_name, y_name]].to_numpy(dtype=float)
             center = points.mean(axis=0)
             covariance = np.cov(points, rowvar=False, ddof=1)
@@ -262,23 +284,29 @@ def compare_all_groups(
         for group in group_order:
             gp = parameters[parameters["Group"] == group].set_index("Diagram")
             inside_by_diagram = {}
-            for diagram in [1, 2, 3]:
+            for diagram in EVALUATION_DIAGRAMS:
                 p = gp.loc[diagram]
                 inside_by_diagram[diagram] = points_inside_ellipse(
                     members[p["X"]], members[p["Y"]],
                     p["x0"], p["y0"], p["a"], p["b"], p["theta"],
                 )
             common = inside_by_diagram[1] & inside_by_diagram[2] & inside_by_diagram[3]
+            common_six = np.logical_and.reduce([inside_by_diagram[d] for d in EVALUATION_DIAGRAMS])
             rows.append({
                 "Cluster": cluster,
                 "化学組成グループ": group,
                 "D1内包率": float(inside_by_diagram[1].mean()),
                 "D2内包率": float(inside_by_diagram[2].mean()),
                 "D3内包率": float(inside_by_diagram[3].mean()),
+                "D4内包率": float(inside_by_diagram[4].mean()),
+                "D5内包率": float(inside_by_diagram[5].mean()),
+                "D6内包率": float(inside_by_diagram[6].mean()),
                 "3図共通内包率": float(common.mean()),
+                "6図共通内包率": float(common_six.mean()),
             })
     return pd.DataFrame(rows, columns=[
-        "Cluster", "化学組成グループ", "D1内包率", "D2内包率", "D3内包率", "3図共通内包率"
+        "Cluster", "化学組成グループ", "D1内包率", "D2内包率", "D3内包率",
+        "D4内包率", "D5内包率", "D6内包率", "3図共通内包率", "6図共通内包率"
     ])
 
 
@@ -288,27 +316,27 @@ def choose_top3(comparisons: pd.DataFrame) -> pd.DataFrame:
         part = comparisons[comparisons["Cluster"] == cluster]
         candidates = part[part["3図共通内包率"] > 0].copy()
         if candidates.empty:
-            rows.append({"Cluster": cluster, "化学組成グループ": "該当なし", "3図共通内包率": np.nan})
+            rows.append({"Cluster": cluster, "化学組成グループ": "該当なし", "3図共通内包率": np.nan, "6図共通内包率": np.nan})
             continue
         candidates["_tie_total"] = candidates[["D1内包率", "D2内包率", "D3内包率"]].sum(axis=1)
         candidates["_source_order"] = np.arange(len(candidates))
         candidates = candidates.sort_values(
-            ["3図共通内包率", "_tie_total", "_source_order"],
-            ascending=[False, False, True],
+            ["3図共通内包率", "6図共通内包率", "_tie_total", "_source_order"],
+            ascending=[False, False, False, True],
             kind="stable",
         ).head(3)
-        rows.extend(candidates[["Cluster", "化学組成グループ", "3図共通内包率"]].to_dict("records"))
-    return pd.DataFrame(rows, columns=["Cluster", "化学組成グループ", "3図共通内包率"])
+        rows.extend(candidates[["Cluster", "化学組成グループ", "3図共通内包率", "6図共通内包率"]].to_dict("records"))
+    return pd.DataFrame(rows, columns=["Cluster", "化学組成グループ", "3図共通内包率", "6図共通内包率"])
 
 
 def build_sample_results(clustered: pd.DataFrame, top3: pd.DataFrame) -> pd.DataFrame:
-    top_lookup: Dict[str, List[Tuple[str, float]]] = {}
+    top_lookup: Dict[str, List[Tuple[str, float, float]]] = {}
     for cluster, part in top3.groupby("Cluster", sort=False):
         vals = []
         for _, row in part.iterrows():
             if row["化学組成グループ"] == "該当なし" or pd.isna(row["3図共通内包率"]):
                 continue
-            vals.append((row["化学組成グループ"], float(row["3図共通内包率"])))
+            vals.append((row["化学組成グループ"], float(row["3図共通内包率"]), float(row["6図共通内包率"])))
         top_lookup[cluster] = vals
 
     rows = []
@@ -318,14 +346,16 @@ def build_sample_results(clustered: pd.DataFrame, top3: pd.DataFrame) -> pd.Data
         for i in range(1, 4):
             if i <= len(candidates):
                 output[f"クラスター候補{i}"] = candidates[i - 1][0]
-                output[f"共通内包率{i}"] = candidates[i - 1][1]
+                output[f"3図共通内包率{i}"] = candidates[i - 1][1]
+                output[f"6図共通内包率{i}"] = candidates[i - 1][2]
             else:
                 output[f"クラスター候補{i}"] = ""
-                output[f"共通内包率{i}"] = np.nan
+                output[f"3図共通内包率{i}"] = np.nan
+                output[f"6図共通内包率{i}"] = np.nan
         rows.append(output)
     columns = ["資料ID", "Cluster"]
     for i in range(1, 4):
-        columns.extend([f"クラスター候補{i}", f"共通内包率{i}"])
+        columns.extend([f"クラスター候補{i}", f"3図共通内包率{i}", f"6図共通内包率{i}"])
     return pd.DataFrame(rows, columns=columns)
 
 
@@ -352,13 +382,14 @@ def run_analysis(
     summary_metrics = pd.DataFrame({
         "項目": [
             "解析資料数", "検出クラスター数", "クラスター所属資料数", "未所属資料数",
-            "使用変数", "解析方法", "min_cluster_size", "min_samples", "クラスター楕円",
+            "使用変数", "解析方法", "min_cluster_size", "min_samples", "クラスター楕円", "候補の優先順",
         ],
         "結果": [
             len(clustered), len(clusters), assigned, unassigned,
             "Rb*、Sr*、Zr*", "HDBSCAN", min_cluster_size,
             "自動" if min_samples is None else min_samples,
             f"{ellipse_confidence:.0%}分布楕円",
+            "3図共通内包率 → 6図共通内包率 → D1〜D3内包率合計 → シート順",
         ],
     })
     counts = clustered["Cluster"].value_counts()
@@ -442,16 +473,18 @@ def export_results_xlsx(results: AnalysisResults, output_path: str | Path) -> Pa
                 cell[0].number_format = "0.000"
 
         comp_ws = workbook["All_Group_Comparisons"]
-        for row in comp_ws.iter_rows(min_row=2, min_col=3, max_col=6):
+        for row in comp_ws.iter_rows(min_row=2, min_col=3, max_col=comp_ws.max_column):
             for cell in row:
                 cell.number_format = "0.0%"
         top_ws = workbook["Cluster_Top3"]
-        for cell in top_ws["C"][1:]:
-            cell.number_format = "0.0%"
+        for row in top_ws.iter_rows(min_row=2, min_col=3, max_col=4):
+            for cell in row:
+                cell.number_format = "0.0%"
         sample_ws = workbook["Sample_Cluster_Results"]
-        for col in [4, 6, 8]:
-            for cell in sample_ws.iter_rows(min_row=2, min_col=col, max_col=col):
-                cell[0].number_format = "0.0%"
+        for col, header in enumerate(results.sample_results.columns, start=1):
+            if "内包率" in header:
+                for cell in sample_ws.iter_rows(min_row=2, min_col=col, max_col=col):
+                    cell[0].number_format = "0.0%"
         for row in sample_ws.iter_rows(
             min_row=1,
             max_row=sample_ws.max_row,
@@ -461,3 +494,14 @@ def export_results_xlsx(results: AnalysisResults, output_path: str | Path) -> Pa
             for cell in row:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
     return output_path
+
+
+def make_output_name(input_name: str) -> str:
+    """Remove the ellipse suffix and an optional download-copy number after it."""
+    import re
+
+    stem = Path(input_name).stem.rstrip()
+    stem = re.sub(r"_ellipse_results(?:\s*\(\d+\))?$", "", stem)
+    return f"{stem}_clustering_results.xlsx"
+
+
