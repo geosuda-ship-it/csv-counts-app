@@ -241,3 +241,122 @@ if uploaded is not None and parameter_file is not None:
             hide_index=True,
             width="stretch",
         )
+if uploaded is not None and parameter_file is not None:
+    import numpy as np
+
+    diagram_axes = {
+        1: ("Rb*", "Sr*"),
+        2: ("Rb*", "Zr*"),
+        3: ("Sr*", "Zr*"),
+        4: ("Sr*", "100Fe/K"),
+        5: ("Sr*", "K/Ca"),
+        6: ("Rb*", "100Mn/Fe"),
+    }
+
+    measurement_data = calculation_data.reset_index(drop=True).copy()
+
+    try:
+        parameters = ellipse_parameters.copy()
+        numeric_columns = ["Diagram", "x0", "y0", "a", "b", "theta"]
+        parameters[numeric_columns] = parameters[numeric_columns].apply(
+            pd.to_numeric, errors="raise"
+        )
+
+        if not np.isfinite(parameters[numeric_columns].to_numpy(dtype=float)).all():
+            raise ValueError("楕円パラメーターに空白や計算不能な値があります。")
+        if parameters[["a", "b"]].le(0).any().any():
+            raise ValueError("楕円の半軸長a・bは正の値にしてください。")
+
+        detail_frames = []
+
+        for group, group_parameters in parameters.groupby("Group", sort=False):
+            p = group_parameters.set_index("Diagram")
+            distances = []
+
+            for diagram, (x_name, y_name) in diagram_axes.items():
+                row = p.loc[diagram]
+                if (row["X"], row["Y"]) != (x_name, y_name):
+                    raise ValueError(f"{group}のD{diagram}のX・Yが一致しません。")
+
+                theta = np.deg2rad(row["theta"])
+                dx = measurement_data[x_name].to_numpy() - row["x0"]
+                dy = measurement_data[y_name].to_numpy() - row["y0"]
+                with np.errstate(over="ignore", invalid="ignore"):
+                    distance = np.hypot(
+                        (dx * np.cos(theta) + dy * np.sin(theta)) / row["a"],
+                        (-dx * np.sin(theta) + dy * np.cos(theta)) / row["b"],
+                    )
+                distances.append(distance)
+
+            distances = np.column_stack(distances)
+            inside = distances <= 1
+            valid = (
+                np.isfinite(distances).all(axis=1)
+                & inside[:, :3].all(axis=1)
+                & (distances[:, 3:] <= [3, 3, 5]).all(axis=1)
+            )
+
+            frame = pd.DataFrame({
+                "測定No": np.arange(1, len(measurement_data) + 1),
+                "sample": measurement_data["sample"].to_numpy(),
+                "化学組成グループ": group,
+            })
+            for diagram in range(1, 7):
+                distance = distances[:, diagram - 1]
+                frame[f"D{diagram}規格化距離"] = np.where(
+                    np.isfinite(distance), distance, np.nan
+                )
+                frame[f"D{diagram}判定"] = np.where(
+                    ~np.isfinite(distance), "計算不能",
+                    np.where(inside[:, diagram - 1], "楕円内", "楕円外"),
+                )
+            frame["有効性"] = np.where(valid, "有効", "無効")
+            frame["得点"] = np.where(
+                valid, 7 + inside[:, 3:].sum(axis=1), np.nan
+            )
+            detail_frames.append(frame)
+
+        if not detail_frames:
+            raise ValueError("判別に使用できるパラメーターがありません。")
+
+        detail_results = pd.concat(detail_frames, ignore_index=True)
+        detail_results = detail_results.sort_values(
+            "測定No", kind="stable"
+        ).reset_index(drop=True)
+
+        measurement_results = measurement_data[
+            ["sample", "測定モード", "試料測定日時"]
+        ].copy()
+        measurement_results.insert(
+            0, "測定No", np.arange(1, len(measurement_data) + 1)
+        )
+        measurement_results["判別結果"] = "判定不能"
+        measurement_results["得点"] = np.nan
+        measurement_results["有効性"] = "判定不能"
+        measurement_results["_Groups"] = [()] * len(measurement_results)
+
+        valid_results = detail_results[detail_results["有効性"].eq("有効")]
+        for number, part in valid_results.groupby("測定No", sort=False):
+            score = int(part["得点"].max())
+            groups = tuple(
+                part.loc[part["得点"].eq(score), "化学組成グループ"]
+            )
+            index = number - 1
+            measurement_results.at[index, "判別結果"] = "・".join(groups)
+            measurement_results.at[index, "得点"] = score
+            measurement_results.at[index, "有効性"] = "有効"
+            measurement_results.at[index, "_Groups"] = groups
+
+    except Exception as exc:
+        st.error(f"判別できませんでした：{exc}")
+        st.stop()
+
+    st.success("測定ごとの判別が完了しました。")
+    st.dataframe(
+        measurement_results.drop(columns="_Groups"),
+        hide_index=True,
+        width="stretch",
+    )
+
+    with st.expander("化学組成グループ別の判別詳細を確認する"):
+        st.dataframe(detail_results, hide_index=True, width="stretch")
