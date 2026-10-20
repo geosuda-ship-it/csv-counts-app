@@ -80,10 +80,11 @@ if st.button(
                     ellipse_confidence=0.95,
                 )
 
+
                 output_name = make_output_name(input_name)
                 output_path = temp_dir / output_name
 
-export_results_xlsx(results, output_path, input_path)
+                export_results_xlsx(results, output_path, input_path)
 
                 excel_bytes = output_path.read_bytes()
 
