@@ -11,7 +11,7 @@ st.set_page_config(
 st.title("判別楕円法による黒曜石の化学組成グループ候補の評価")
 
 uploaded = st.file_uploader(
-    "① 測定データのExcelファイルをアップロードしてください。",
+    "測定データのExcelファイル（をアップロードしてください。",
     type=["xlsx"],
 )
 
