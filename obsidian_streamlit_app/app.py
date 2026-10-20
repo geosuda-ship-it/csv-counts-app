@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 import streamlit as st
 
-from analysis_core import DIAGRAMS, run_analysis, export_results_xlsx
+from analysis_core import DIAGRAMS, run_analysis, export_results_xlsx, make_output_name
 
 
 def analyze_upload(content):
@@ -78,7 +78,7 @@ def main():
         st.info("Excelを選択すると、解析を開始できます。")
         return
     content = uploaded.getvalue()
-    signature = sha256(content).hexdigest()
+    signature = (sha256(content).hexdigest(), "six-diagram-evaluation-v1")
     saved = st.session_state.get("analysis")
     if saved and saved["signature"] != signature:
         st.session_state.pop("analysis", None)
@@ -96,7 +96,7 @@ def main():
     results = saved["results"]
     st.success("解析が完了しました。結果Excelをダウンロードできます。")
     st.download_button("結果Excelをダウンロード", data=saved["output"],
-                       file_name=f"{Path(uploaded.name).stem}_cluster_analysis_results.xlsx",
+                       file_name=make_output_name(uploaded.name),
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     overview, samples, plots, parameters, comparisons, top3 = st.tabs([
         "検出結果の概要", "資料ごとの結果", "D1〜D3の散布図", "クラスター楕円パラメータ", "全化学組成グループとの比較", "クラスターごとの上位3件"])
@@ -122,7 +122,7 @@ def main():
         show_table(results.all_group_comparisons)
     with top3:
         show_table(results.cluster_top3)
-        st.caption("3図共通内包率が0%を超えるグループから最大3件。共通内包率が同じ場合は各図の内包率合計、さらに同じ場合は元のシート順で選びます。")
+        st.caption("3図共通内包率が0%を超えるグループから最大3件。3図共通内包率、6図共通内包率、D1〜D3の内包率合計の順に比較し、すべて同じ場合は元のシート順で選びます。")
 
 
 if __name__ == "__main__":
