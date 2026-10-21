@@ -36,7 +36,7 @@ st.write(
 st.subheader("解析データのアップロード")
 
 uploaded_file = st.file_uploader(
-    "STEP 2で出力されたExcelファイルをアップロードしてください",
+    "STEP 2で出力されたExcelファイル（日付_定量値_ellipse_results.xlsx）をアップロードしてください",
     type=["xlsx"],
     key="cluster_input",
 )
@@ -139,7 +139,7 @@ if saved and saved["signature"] == signature:
     col2.metric("所属資料数", int(assigned))
     col3.metric("未所属資料数", int(unassigned))
 
-    st.subheader("3．クラスター別資料数")
+    st.subheader("クラスター別資料数")
 
     st.dataframe(
         counts,
@@ -147,7 +147,7 @@ if saved and saved["signature"] == signature:
         hide_index=True,
     )
 
-    st.subheader("4．クラスターごとの上位3候補")
+    st.subheader("クラスターごとの上位3候補")
 
     st.dataframe(
         saved["top3"],
@@ -155,7 +155,7 @@ if saved and saved["signature"] == signature:
         hide_index=True,
     )
 
-    st.subheader("5．資料ごとのクラスター判定結果")
+    st.subheader("資料ごとのクラスター判定結果")
 
     st.dataframe(
         saved["samples"],
@@ -184,7 +184,7 @@ if saved and saved["signature"] == signature:
             hide_index=True,
         )
 
-    st.subheader("6．解析結果のダウンロード")
+    st.subheader("解析結果のダウンロード")
 
     st.download_button(
         label="クラスター解析結果Excelをダウンロード",
