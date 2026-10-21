@@ -20,7 +20,7 @@ st.set_page_config(
 
 st.subheader("Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data")
 
-st.header("STEP 3  \nクラスター単位の化学組成グループ判定（クラスター法）")
+st.subheader("STEP 3  \nクラスター単位の化学組成グループ判定（クラスター法）")
 
 st.write(
     "各資料から得られた複数の定量値の中央値を算出し、Rb分率、Sr分率、Zr分率に基づいてクラスター区分を行います。"
