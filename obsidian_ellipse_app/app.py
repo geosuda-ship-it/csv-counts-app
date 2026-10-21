@@ -126,7 +126,7 @@ if st.button(
 
             output_name = (
                 base_name
-                + "_step2_判別結果.xlsx"
+                + "_step2_判定結果.xlsx"
             )
 
             st.session_state["ellipse_result"] = {
