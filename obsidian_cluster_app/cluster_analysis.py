@@ -50,7 +50,7 @@ DIAGRAMS = {
 
 }
 
-CLUSTER_DIAGRAMS = {d: DIAGRAMS[d] for d in (1, 2, 3)}
+CLUSTER_DIAGRAMS = {d: DIAGRAMS[d] for d in (1, 2, 3, 4, 5, 6)}
 
 
 
