@@ -87,7 +87,7 @@ if st.button(
                 results = run_analysis(
                     input_path,
                     min_cluster_size=3,
-                    min_samples=2,
+                    min_samples=1,
                     ellipse_confidence=0.95,
                 )
 
