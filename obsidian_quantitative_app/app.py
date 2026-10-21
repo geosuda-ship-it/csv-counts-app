@@ -68,7 +68,7 @@ parameter_file = st.file_uploader(
 )
 
 
-st.subheader("3．Quantification")
+st.subheader("3. Run Quantification")
 
 ready = bool(csv_files) and parameter_file is not None
 
