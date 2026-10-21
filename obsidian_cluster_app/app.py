@@ -33,7 +33,7 @@ st.write(
 # 入力ファイル
 # ------------------------------------------
 
-st.subheader("1．解析データ")
+st.subheader("解析データのアップロード")
 
 uploaded_file = st.file_uploader(
     "STEP 2で出力されたExcelファイルをアップロードしてください",
@@ -51,7 +51,7 @@ st.caption(
 # 解析実行
 # ------------------------------------------
 
-st.subheader("1.解析用ファイルのアップロード")
+st.subheader("解析の実行")
 
 signature = None
 
