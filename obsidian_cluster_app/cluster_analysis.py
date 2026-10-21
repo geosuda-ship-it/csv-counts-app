@@ -1045,19 +1045,19 @@ def export_results_xlsx(
 
 
 def make_output_name(input_name: str) -> str:
-
-    """Remove the ellipse suffix and an optional download-copy number after it."""
-
+    """STEP 2の接尾辞を外し、STEP 3の出力ファイル名を作成する。"""
     import re
-
-
 
     stem = Path(input_name).stem.rstrip()
 
-    stem = re.sub(r"_ellipse_results(?:\s*\(\d+\))?$", "", stem)
+    stem = re.sub(
+        r"(?:_step2_判別結果|_ellipse_results)"
+        r"(?:\s*\(\d+\))?$",
+        "",
+        stem,
+    )
 
-    return f"{stem}_clustering_results.xlsx"
-
+    return f"{stem}_step3_クラスター判別結果.xlsx"
 
 
 
