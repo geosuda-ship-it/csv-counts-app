@@ -32,7 +32,7 @@ st.subheader("STEP 2: Sample-based Chemical Group Assignment (Ellipse Method)  \
 
 st.write(
     "各資料から得られた複数の定量分析値について、それぞれ既知の化学組成グループの判別楕円との適合性を評価し、その結果を集約して資料単位の化学組成グループを判定します。"
-    "STEP 1で作成した定量値の計算結果ファイル（日付_定量値.xlsx）と、"
+    "STEP 1で作成した定量値の計算結果ファイル（日付_step1_定量値.xlsx）と、"
     "判別楕円パラメータファイル（例：判別楕円パラメータ_ver24.xlsx）をアップロードすると、"
     "各資料の化学組成グループの判定結果をExcelファイルとしてダウンロードできます。"
 )
@@ -45,7 +45,7 @@ st.write(
 st.subheader("1. Upload Quantification Results File")
 
 measurement_file = st.file_uploader(
-    "STEP 1で作成した定量値の計算結果ファイル（日付_定量値.xlsx）をアップロードしてください",
+    "STEP 1で作成した定量値の計算結果ファイル（日付_step1_定量値.xlsx）をアップロードしてください",
     type=["xlsx"],
     key="measurement",
 )
