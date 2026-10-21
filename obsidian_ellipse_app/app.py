@@ -16,7 +16,7 @@ from ellipse_analysis import (
 st.set_page_config(
     page_title="黒曜石の産地判別",
     page_icon="🔬",
-    layout="wide",
+    layout="centered",
 )
 
 st.title("黒曜石の産地推定（判別楕円法）")
