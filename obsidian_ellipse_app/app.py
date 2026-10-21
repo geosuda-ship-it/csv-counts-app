@@ -12,7 +12,7 @@ from ellipse_analysis import (
 )
 
 st.set_page_config(
-    page_title="黒曜石の産地判別",
+    page_title="Ellipse Method",
     page_icon="🔬",
     layout="centered",
 )
