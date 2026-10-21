@@ -1051,13 +1051,13 @@ def make_output_name(input_name: str) -> str:
     stem = Path(input_name).stem.rstrip()
 
     stem = re.sub(
-        r"(?:_step2_判別結果|_ellipse_results)"
+        r"(?:_step2_判定結果|_ellipse_results)"
         r"(?:\s*\(\d+\))?$",
         "",
         stem,
     )
 
-    return f"{stem}_step3_クラスター判別結果.xlsx"
+    return f"{stem}_step3_クラスター判定結果.xlsx"
 
 
 
