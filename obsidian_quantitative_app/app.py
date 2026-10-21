@@ -11,7 +11,16 @@ st.set_page_config(
     layout="centered",
 )
 
-st.subheader(":red[Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data]")
+st.markdown(
+    """
+    <h3 style="text-align: center; font-size: 32px;">
+        Obsidian Provenance Analysis Tools<br>
+        Using Quantitative EDXRF Data
+    </h3>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 st.subheader("STEP 1: XRF Intensity-to-Concentration Conversion  \nNEX DE 強度データの定量計算")
 
