@@ -13,13 +13,13 @@ st.set_page_config(
 
 st.subheader(":red[Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data]")
 
-st.subheader("STEP 3: Cluster-based Chemical Group Assignment (Clustering Method)  \nクラスター単位の化学組成グループ判定（クラスター法）")
+st.subheader("STEP 1: XRF Intensity-to-Concentration Conversion  \nNEX DE 強度データの定量計算")
 
 st.write(
-    "各資料から得られた複数の定量値の中央値を算出し、Rb分率、Sr分率、Zr分率に基づいてクラスター区分を行います。"
-    "次に、各クラスターの分布楕円を作成し、既知の化学組成グループの判別楕円との重なりを比較することで、クラスターごとに化学組成グループを判定します。"
-    "STEP 2で出力されたExcelファイル（日付_定量値_ellipse_results.xlsx）をアップロードして解析を実行すると、各資料の化学組成グループの判定結果をExcelファイルとしてダウンロードできます。"
-    "出力ファイルには、STEP 2による判定結果も含まれています。"
+    "ドリフト補正用試料（QC-2）の基準強度と測定強度に基づいてドリフト補正係数を求め、検量線法により定量値を算出します。"
+    "本プログラムでは、QC-2を複数回測定した場合、その測定回数と同じ数の定量値を、1つの資料のXRF強度データから算出します。"
+    "NEX DEから出力したCSV形式の測定結果ファイル（例：20260728.csv）と、機関ごとの定量計算パラメーターファイル（例：長崎大学_定量計算パラメーターver1.xlsx）をアップロードすると、"
+    "定量値の計算結果をExcelファイルとしてダウンロードできます。"
 )
 
 def make_output_name(csv_files):
