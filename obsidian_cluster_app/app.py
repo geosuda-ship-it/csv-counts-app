@@ -18,7 +18,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data")
+st.subheader("Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data")
 
 st.header("STEP 3  \nクラスター単位の化学組成グループ判定（クラスター法）")
 
