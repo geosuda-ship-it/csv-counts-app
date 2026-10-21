@@ -4,15 +4,6 @@ from pathlib import Path
 
 import streamlit as st
 
-from ellipse_analysis import (
-    read_measurements,
-    read_ellipse_parameters,
-    run_ellipse_analysis,
-    export_results,
-    public_table,
-)
-
-
 st.set_page_config(
     page_title="黒曜石の産地判別",
     page_icon="🔬",
@@ -123,19 +114,12 @@ if st.button(
                 "signature": signature,
                 "excel": excel_bytes,
                 "filename": output_name,
-                "sample_count": len(inputs.measurement_counts),
-                "measurement_count": len(inputs.measurements),
-                "group_count": parameters["Group"].nunique(),
-                "summaries": public_table(results.summaries),
-                "medians": results.medians,
-                "data": public_table(results.data),
             }
 
     except Exception as error:
         st.session_state.pop("ellipse_result", None)
         st.error("産地判別の処理中にエラーが発生しました。")
         st.exception(error)
-
 
 # --------------------------------------------------
 # 結果表示・ダウンロード
@@ -146,48 +130,6 @@ saved = st.session_state.get("ellipse_result")
 if saved and saved["signature"] == signature:
 
     st.success("産地判別が完了しました。")
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric(
-        "資料数",
-        saved["sample_count"],
-    )
-
-    col2.metric(
-        "測定データ数",
-        saved["measurement_count"],
-    )
-
-    col3.metric(
-        "化学組成グループ数",
-        saved["group_count"],
-    )
-
-    st.subheader("4．資料ごとの最終判別結果")
-
-    st.dataframe(
-        saved["summaries"],
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.subheader("5．元素別中央値")
-
-    st.dataframe(
-        saved["medians"],
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    with st.expander("測定ごとの判別結果を表示"):
-        st.dataframe(
-            saved["data"],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    st.subheader("6．Excelファイルのダウンロード")
 
     st.download_button(
         label="判別結果Excelをダウンロード",
