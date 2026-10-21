@@ -20,7 +20,7 @@ st.set_page_config(
 
 st.markdown(
     """
-    <h3 style="text-align: center; color: red;">
+    <h3 style="text-align: center;">
         Obsidian Provenance Analysis Tools<br>
         Using Quantitative EDXRF Data
     </h3>
