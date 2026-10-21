@@ -18,10 +18,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.markdown(
-    "<h3 style='text-align: center; color: red;'>Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data</h3>",
-    unsafe_allow_html=True
-)
+st.subheader(":red[Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data]")
 
 st.subheader("STEP 3: Cluster-based Chemical Group Assignment (Clustering Method) \nクラスター単位の化学組成グループ判定（クラスター法）")
 
