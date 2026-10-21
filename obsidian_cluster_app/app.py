@@ -95,19 +95,12 @@ if st.button(
                 "signature": signature,
                 "excel": excel_bytes,
                 "filename": output_name,
-                "summary": results.summary_metrics,
-                "counts": results.cluster_counts,
-                "top3": results.cluster_top3,
-                "samples": results.sample_results,
-                "ellipses": results.ellipse_parameters,
-                "comparisons": results.all_group_comparisons,
             }
 
     except Exception as error:
         st.session_state.pop("cluster_result", None)
         st.error("クラスター解析中にエラーが発生しました。")
         st.exception(error)
-
 
 # ------------------------------------------
 # 結果表示
@@ -118,73 +111,6 @@ saved = st.session_state.get("cluster_result")
 if saved and saved["signature"] == signature:
 
     st.success("クラスター解析が完了しました。")
-
-    counts = saved["counts"]
-
-    cluster_count = (
-        counts["Cluster"] != "未所属"
-    ).sum()
-
-    assigned = counts.loc[
-        counts["Cluster"] != "未所属", "資料数"
-    ].sum()
-
-    unassigned = counts.loc[
-        counts["Cluster"] == "未所属", "資料数"
-    ].sum()
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("検出クラスター数", int(cluster_count))
-    col2.metric("所属資料数", int(assigned))
-    col3.metric("未所属資料数", int(unassigned))
-
-    st.subheader("クラスター別資料数")
-
-    st.dataframe(
-        counts,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.subheader("クラスターごとの上位3候補")
-
-    st.dataframe(
-        saved["top3"],
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.subheader("資料ごとのクラスター判定結果")
-
-    st.dataframe(
-        saved["samples"],
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    with st.expander("クラスター楕円パラメーター"):
-        st.dataframe(
-            saved["ellipses"],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    with st.expander("全化学組成グループとの比較結果"):
-        st.dataframe(
-            saved["comparisons"],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    with st.expander("解析条件・概要"):
-        st.dataframe(
-            saved["summary"],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    st.subheader("解析結果のダウンロード")
 
     st.download_button(
         label="クラスター解析結果Excelをダウンロード",
