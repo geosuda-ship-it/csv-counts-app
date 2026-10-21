@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 
 st.set_page_config(
-    page_title="NEX DE 定量計算",
+    page_title="Concentration",
     page_icon="🔬",
     layout="centered",
 )
