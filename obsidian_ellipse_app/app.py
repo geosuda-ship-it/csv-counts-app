@@ -17,7 +17,16 @@ st.set_page_config(
     layout="centered",
 )
 
-st.subheader(":red[Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data]")
+st.markdown(
+    """
+    <h3 style="text-align: center; font-size: 32px;">
+        Obsidian Provenance Analysis Tools<br>
+        Using Quantitative EDXRF Data
+    </h3>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 st.subheader("STEP 2: Sample-based Chemical Group Assignment (Ellipse Method)  \n資料単位の化学組成グループ判定（判別楕円法）")
 
