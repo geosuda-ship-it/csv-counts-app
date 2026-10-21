@@ -33,7 +33,7 @@ st.write(
 # 入力ファイル
 # ------------------------------------------
 
-st.subheader("解析データのアップロード")
+st.subheader("1. Upload Analysis Data")
 
 uploaded_file = st.file_uploader(
     "STEP 2で出力されたExcelファイル（日付_定量値_ellipse_results.xlsx）をアップロードしてください",
