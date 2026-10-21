@@ -46,7 +46,7 @@ def make_signature(csv_files, parameter_file):
     return digest.hexdigest()
 
 
-st.subheader("### 1. Upload NEX DE Intensity CSV File")
+st.subheader("1. Upload NEX DE Intensity CSV File")
 
 csv_files = st.file_uploader(
     "NED DEから出力したCSVファイルを選択してください（複数選択可）",
@@ -60,7 +60,7 @@ if csv_files:
         st.write(f"・{file.name}")
 
 
-st.subheader("### 2. Upload Quantification Paramers")
+st.subheader("2. Upload Quantification Paramers")
 
 parameter_file = st.file_uploader(
     "機関ごとの定量計算パラメーターファイルをアップロードしてください",
@@ -68,7 +68,7 @@ parameter_file = st.file_uploader(
 )
 
 
-st.subheader("### 3．Quantification")
+st.subheader("3．Quantification")
 
 ready = bool(csv_files) and parameter_file is not None
 
