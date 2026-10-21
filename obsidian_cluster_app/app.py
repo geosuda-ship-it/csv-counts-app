@@ -51,7 +51,7 @@ st.caption(
 # 解析実行
 # ------------------------------------------
 
-st.subheader("解析の実行")
+st.subheader("2. Run Analysis")
 
 signature = None
 
