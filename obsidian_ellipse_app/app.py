@@ -121,9 +121,12 @@ if st.button(
                 inputs,
             )
 
+            input_stem = Path(measurement_file.name).stem
+            base_name = input_stem.removesuffix("_step1_定量値")
+
             output_name = (
-                Path(measurement_file.name).stem
-                + "_ellipse_results.xlsx"
+                base_name
+                + "_step2_判別結果.xlsx"
             )
 
             st.session_state["ellipse_result"] = {
