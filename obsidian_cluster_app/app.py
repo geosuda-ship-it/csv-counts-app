@@ -13,7 +13,7 @@ from cluster_analysis import (
 
 
 st.set_page_config(
-    page_title="黒曜石のクラスター解析",
+    page_title="Clustering Method",
     page_icon="🔬",
     layout="centered",
 )
