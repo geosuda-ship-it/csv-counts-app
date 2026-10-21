@@ -26,7 +26,7 @@ st.subheader("STEP 2: Sample-based Chemical Group Assignment (Ellipse Method)  \
 st.write(
     "各資料から得られた複数の定量分析値について、それぞれ既知の化学組成グループの判別楕円との適合性を評価し、その結果を集約して資料単位の化学組成グループを判定します。"
     "STEP 1で作成した定量値の計算結果ファイル（日付_定量値.xlsx）と、"
-    "共通の判別楕円パラメータファイル（例：判別楕円パラメータ_ver24.xlsx）をアップロードすると、"
+    "判別楕円パラメータファイル（例：判別楕円パラメータ_ver24.xlsx）をアップロードすると、"
     "各資料の化学組成グループの判定結果をExcelファイルとしてダウンロードできます。"
 )
 
@@ -35,10 +35,10 @@ st.write(
 # 入力ファイル
 # --------------------------------------------------
 
-st.subheader("1．測定データ")
+st.subheader("1. Upload Quantification Results File")
 
 measurement_file = st.file_uploader(
-    "元素定量値のExcelファイルを選択してください",
+    "STEP 1で作成した定量値の計算結果ファイル（日付_定量値.xlsx）をアップロードしてください",
     type=["xlsx"],
     key="measurement",
 )
@@ -46,10 +46,10 @@ measurement_file = st.file_uploader(
 st.caption("「定量値」シートを含むExcelファイル")
 
 
-st.subheader("2．判別楕円パラメーター")
+st.subheader("2. Upload Classification Ellipse Parameters File")
 
 parameter_file = st.file_uploader(
-    "判別楕円パラメーターのExcelファイルを選択してください",
+    "判別楕円パラメータファイル（例：判別楕円パラメータ_ver24.xlsx）をアップロードしてください",
     type=["xlsx"],
     key="parameters",
 )
@@ -64,7 +64,7 @@ st.caption(
 # 解析処理
 # --------------------------------------------------
 
-st.subheader("3．産地判別")
+st.subheader("3. Run Analysis")
 
 ready = (
     measurement_file is not None
