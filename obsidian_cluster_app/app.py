@@ -33,7 +33,7 @@ st.subheader("STEP 3: Cluster-based Chemical Group Assignment (Clustering Method
 st.write(
     "各資料から得られた複数の定量値の中央値を算出し、Rb分率、Sr分率、Zr分率に基づいてクラスター区分を行います。"
     "次に、各クラスターの分布楕円を作成し、既知の化学組成グループの判別楕円との重なりを比較することで、クラスターごとに化学組成グループを判定します。"
-    "STEP 2で出力されたExcelファイル（日付_定量値_ellipse_results.xlsx）をアップロードして解析を実行すると、各資料の化学組成グループの判定結果をExcelファイルとしてダウンロードできます。"
+    "STEP 2で出力されたExcelファイル（日付_step2_判定結果.xlsx）をアップロードして解析を実行すると、各資料の化学組成グループの判定結果をExcelファイルとしてダウンロードできます。"
     "出力ファイルには、STEP 2による判定結果も含まれています。"
 )
 
@@ -44,7 +44,7 @@ st.write(
 st.subheader("1. Upload Analysis Data")
 
 uploaded_file = st.file_uploader(
-    "STEP 2で出力されたExcelファイル（日付_定量値_ellipse_results.xlsx）をアップロードしてください",
+    "STEP 2で出力されたExcelファイル（日付_step2_判定結果.xlsx）をアップロードしてください",
     type=["xlsx"],
     key="cluster_input",
 )
