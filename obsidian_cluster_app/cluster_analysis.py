@@ -397,7 +397,7 @@ def detect_clusters(
         min_samples=None if min_samples is None else int(min_samples),
 
         cluster_selection_method="eom",
-
+        allow_single_cluster=True,
     )
 
     sorted_labels = model.fit_predict(x_scaled[fit_order])
