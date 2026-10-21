@@ -19,11 +19,15 @@ st.set_page_config(
     layout="centered",
 )
 
-st.title("黒曜石の産地推定（判別楕円法）")
+st.subheader(":red[Obsidian Provenance Analysis Tools Using Quantitative EDXRF Data]")
+
+st.subheader("STEP 2: Sample-based Chemical Group Assignment (Ellipse Method)  \n資料単位の化学組成グループ判定（判別楕円法）")
 
 st.write(
-    "定量値と判別楕円を用いて，"
-    "化学組成グループを判別します。"
+    "各資料から得られた複数の定量分析値について、それぞれ既知の化学組成グループの判別楕円との適合性を評価し、その結果を集約して資料単位の化学組成グループを判定します。"
+    "STEP 1で作成した定量値の計算結果ファイル（日付_定量値.xlsx）と、"
+    "共通の判別楕円パラメータファイル（例：判別楕円パラメータ_ver24.xlsx）をアップロードすると、"
+    "各資料の化学組成グループの判定結果をExcelファイルとしてダウンロードできます。"
 )
 
 
