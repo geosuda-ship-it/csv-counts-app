@@ -38,7 +38,7 @@ def make_output_name(csv_files):
         stem = re.sub(r"\s*\(\d+\)$", "", stem)
         names.append(stem)
 
-    return "_".join(sorted(names)) + "_定量値.xlsx"
+    return "_".join(sorted(names)) + "_step1_定量値.xlsx"
 
 
 def make_signature(csv_files, parameter_file):
