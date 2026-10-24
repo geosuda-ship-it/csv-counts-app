@@ -24,7 +24,7 @@ st.markdown(
 )
 
 st.subheader(
-    "STEP 3A: Cluster-based Chemical Group Assignment "
+    "STEP 3: Cluster-based Chemical Group Assignment "
     "(Manual Clustering Method)  \n"
     "クラスター単位の化学組成グループ判定（手動クラスター法）"
 )
