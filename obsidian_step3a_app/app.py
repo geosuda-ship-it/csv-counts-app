@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 
 import streamlit as st
 
-from step3a_analysis import analyze
+from step3A_cluster_judgment import analyze
 
 
 st.set_page_config(
