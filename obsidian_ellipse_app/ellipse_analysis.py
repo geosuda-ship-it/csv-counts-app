@@ -680,7 +680,31 @@ def select_medians(decisions, summaries):
 
         median.update(rows[list(ELEMENTS)].median().to_dict())
 
-        median.update({'主要判定結果': summary['最終判別結果'], '得点': summary['得点'], '中央値使用数': len(rows)})
+        judgment = summary['最終判別結果']
+
+        score = summary['得点']
+
+        combined_judgment = (
+
+            judgment
+
+            if pd.isna(score)
+
+            else f'{judgment}（{int(score)}）'
+
+        )
+
+        median.update({
+
+            '主要判定結果': judgment,
+
+            '得点': score,
+
+            '最終判定結果（得点）': combined_judgment,
+
+            '中央値使用数': len(rows),
+
+        })
 
         medians.append(median)
 
