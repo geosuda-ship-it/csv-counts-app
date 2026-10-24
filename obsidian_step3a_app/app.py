@@ -48,7 +48,7 @@ st.write(
 st.subheader("1. Upload Analysis Data")
 
 cluster_file = st.file_uploader(
-    "手動によるクラスター区分結果のExcelファイル（例：遺跡名_step3_クラスター区分_ver1.xlsx）をアップロードしてください",
+    "手動によるクラスター区分結果のExcelファイル（例：遺跡_step3_クラスター区分_ver1.xlsx）をアップロードしてください",
     type=["xlsx"],
     key="step3a_cluster_input",
 )
