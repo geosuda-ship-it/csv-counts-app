@@ -11,16 +11,20 @@ st.set_page_config(
     layout="centered",
 )
 
-st.title(
-    "Obsidian Provenance Analysis Tools\n"
-    "Using Quantitative EDXRF Data"
+st.markdown(
+    """
+    <h3 style="text-align: center; font-size: 32px;">
+        Obsidian Provenance Analysis Tools<br>
+        Using Quantitative EDXRF Data
+    </h3>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.header(
-    "STEP 1: XRF Intensity-to-Concentration Conversion"
+st.subheader(
+    "STEP 1: XRF Intensity-to-Concentration Conversion  \n"
+    "NEX DE 強度データの定量計算"
 )
-
-st.markdown("### NEX DE 強度データの定量計算")
 
 st.write(
     "ドリフト補正用試料（QC-2）の基準強度と測定強度に基づいて"
@@ -66,7 +70,7 @@ def make_signature(csv_files, parameter_file):
     return digest.hexdigest()
 
 
-st.header("1. Upload XRF Intensity CSV Files")
+st.subheader("1. Upload XRF Intensity CSV Files")
 
 st.write(
     "NEX DEから出力した強度CSVファイルをアップロードしてください。"
@@ -77,7 +81,7 @@ csv_files = st.file_uploader(
     "強度CSVファイルを選択してください",
     type=["csv"],
     accept_multiple_files=True,
-    label_visibility="collapsed",
+    key="intensity_csv",
 )
 
 st.caption("CSV形式・複数ファイル選択可")
@@ -88,7 +92,7 @@ if csv_files:
         st.write(f"・{file.name}")
 
 
-st.header("2. Upload Quantification Parameters File")
+st.subheader("2. Upload Quantification Parameters File")
 
 st.write(
     "機関ごとの定量計算パラメーターExcelファイルを"
@@ -98,13 +102,13 @@ st.write(
 parameter_file = st.file_uploader(
     "機関ごとの定量計算パラメーターExcelを選択してください",
     type=["xlsx", "xlsm"],
-    label_visibility="collapsed",
+    key="quantification_parameters",
 )
 
 st.caption("「定量計算パラメーター」シートを含むExcelファイル")
 
 
-st.header("3. Run Quantification")
+st.subheader("3. Run Quantification")
 
 ready = bool(csv_files) and parameter_file is not None
 names = [file.name for file in csv_files]
