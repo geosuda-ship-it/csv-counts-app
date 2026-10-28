@@ -67,13 +67,8 @@ def make_signature(csv_files, parameter_file):
 
 st.subheader("1. Upload XRF Intensity CSV Files")
 
-st.write(
-    "NEX DEから出力した強度CSVファイルをアップロードしてください。"
-    "複数ファイルを同時に選択できます。"
-)
-
 csv_files = st.file_uploader(
-    "強度CSVファイルを選択してください",
+    "NEX DEから出力した強度CSVファイルをアップロードしてください。複数ファイルを同時に選択できます。",
     type=["csv"],
     accept_multiple_files=True,
     key="intensity_csv",
