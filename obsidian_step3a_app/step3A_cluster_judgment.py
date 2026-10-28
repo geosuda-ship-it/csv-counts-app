@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 import sys
 from copy import copy, deepcopy
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from pathlib import Path
 import numpy as np
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 
@@ -36,6 +38,16 @@ DIAGRAMS = {
 }
 SCRIPT_VERSION = "2026-10-24-v5"
 MEDIAN_SHEET_NAME = "Median"
+
+
+def natural_sample_key(value) -> tuple:
+    """Sample-2をSample-10より前に並べるための自然順キー。"""
+    text = str(value or "").strip()
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part.casefold())
+        for part in re.split(r"(\d+)", text)
+        if part
+    )
 
 
 @dataclass(frozen=True)
@@ -319,6 +331,7 @@ def read_sample_assignments(path: Path) -> list[dict]:
             }
         )
     workbook.close()
+    result.sort(key=lambda row: natural_sample_key(row["Sample"]))
     return result
 
 
@@ -335,7 +348,76 @@ def require_median_sheet(path: Path) -> None:
         workbook.close()
 
 
-def copy_median_sheet(source_path: Path, destination_workbook: Workbook) -> None:
+def _sort_and_filter_median_sheet(
+    sheet,
+    sample_assignments: list[dict],
+) -> None:
+    """Medianを資料別判定と同じSample順に並べ、フィルタを設定する。"""
+    header_row = 3
+    headers = {
+        str(sheet.cell(header_row, column).value).strip(): column
+        for column in range(1, sheet.max_column + 1)
+        if sheet.cell(header_row, column).value not in (None, "")
+    }
+    sample_column = headers.get("Sample")
+    if sample_column is None:
+        raise ValueError("Medianシートの3行目に「Sample」列がありません")
+
+    order = {
+        str(record["Sample"]).strip(): index
+        for index, record in enumerate(sample_assignments)
+    }
+    data_rows = []
+    for row_number in range(header_row + 1, sheet.max_row + 1):
+        values = [
+            sheet.cell(row_number, column).value
+            for column in range(1, sheet.max_column + 1)
+        ]
+        sample = values[sample_column - 1]
+        if sample in (None, ""):
+            continue
+        sample_text = str(sample).strip()
+        data_rows.append((sample_text, values))
+
+    data_rows.sort(
+        key=lambda item: (
+            0,
+            order[item[0]],
+        )
+        if item[0] in order
+        else (
+            1,
+            natural_sample_key(item[0]),
+        )
+    )
+
+    for target_row, (_sample, values) in enumerate(
+        data_rows,
+        start=header_row + 1,
+    ):
+        for column, value in enumerate(values, start=1):
+            sheet.cell(target_row, column).value = value
+
+    # 元の末尾に空白行が混在していた場合は、並べ替え後の余分な値を消す。
+    first_unused_row = header_row + 1 + len(data_rows)
+    for row_number in range(first_unused_row, sheet.max_row + 1):
+        for column in range(1, sheet.max_column + 1):
+            sheet.cell(row_number, column).value = None
+
+    first_header_column = min(headers.values())
+    last_header_column = max(headers.values())
+    last_data_row = max(header_row, header_row + len(data_rows))
+    sheet.auto_filter.ref = (
+        f"{get_column_letter(first_header_column)}{header_row}:"
+        f"{get_column_letter(last_header_column)}{last_data_row}"
+    )
+
+
+def copy_median_sheet(
+    source_path: Path,
+    destination_workbook: Workbook,
+    sample_assignments: list[dict],
+) -> None:
     """Medianを値中心で複製し、openpyxlで扱える書式・寸法を引き継ぐ。
 
     Excelが保存した数式キャッシュ（計算済み値）が存在するときはその値を採用する。
@@ -404,6 +486,7 @@ def copy_median_sheet(source_path: Path, destination_workbook: Workbook) -> None
         # 条件付き書式・入力規則は参照式も含め、可能な範囲でそのまま保持する。
         target.conditional_formatting = deepcopy(formula_sheet.conditional_formatting)
         target.data_validations = deepcopy(formula_sheet.data_validations)
+        _sort_and_filter_median_sheet(target, sample_assignments)
     finally:
         source_formula.close()
         source_values.close()
@@ -558,7 +641,7 @@ def write_results(
             showColumnStripes=False,
         )
         detail_sheet.add_table(table)
-    copy_median_sheet(cluster_path, workbook)
+    copy_median_sheet(cluster_path, workbook, sample_assignments)
     workbook.save(path)
 
 
