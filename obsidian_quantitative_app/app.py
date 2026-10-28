@@ -34,9 +34,10 @@ st.write(
 )
 
 st.info(
-    "出力Excelには次の2シートが作成されます。\n\n"
+    "出力Excelには次の3シートが作成されます。\n\n"
     "- **定量値**：反復測定を残した全データ\n"
-    "- **定量値_日付別**：sampleと測定日ごとに各元素の中央値を集計"
+    "- **Median**：sampleごとに各元素の中央値を集計\n"
+    "- **Median_日付別**：sampleと測定日ごとに各元素の中央値を集計"
 )
 
 
@@ -118,7 +119,7 @@ if st.button(
             for file in csv_files
         }
 
-        with st.spinner("定量計算と日付別中央値の集計を実行しています..."):
+        with st.spinner("定量計算と中央値の集計を実行しています..."):
             result = create_multi_quantitative_excel(
                 csv_data,
                 parameter_file.getvalue(),
@@ -131,7 +132,8 @@ if st.button(
             "filename": output_name,
             "file_count": result["file_count"],
             "row_count": result["output_row_count"],
-            "daily_row_count": result["median_row_count"],
+            "median_row_count": result["median_row_count"],
+            "daily_median_row_count": result["daily_median_row_count"],
             "warnings": result["warnings"],
         }
 
@@ -146,10 +148,14 @@ saved = st.session_state.get("quant_result")
 if saved and saved["signature"] == signature:
     st.success("STEP 1の定量計算が完了しました。")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("入力CSV", f"{saved['file_count']}ファイル")
     col2.metric("定量値", f"{saved['row_count']}行")
-    col3.metric("定量値_日付別", f"{saved['daily_row_count']}行")
+    col3.metric("Median", f"{saved['median_row_count']}行")
+    col4.metric(
+        "Median_日付別",
+        f"{saved['daily_median_row_count']}行",
+    )
 
     for name, day, message in saved["warnings"]:
         day_text = day.isoformat() if hasattr(day, "isoformat") else str(day)
