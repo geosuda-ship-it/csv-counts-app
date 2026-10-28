@@ -11,33 +11,30 @@ st.set_page_config(
     layout="centered",
 )
 
-st.markdown(
-    """
-    <h3 style="text-align: center; font-size: 32px;">
-        Obsidian Provenance Analysis Tools<br>
-        Using Quantitative EDXRF Data
-    </h3>
-    """,
-    unsafe_allow_html=True,
+st.title(
+    "Obsidian Provenance Analysis Tools\n"
+    "Using Quantitative EDXRF Data"
 )
 
-st.subheader(
-    "STEP 1: XRF Intensity-to-Concentration Conversion\n"
-    "NEX DE 強度データの定量計算"
+st.header(
+    "STEP 1: XRF Intensity-to-Concentration Conversion"
 )
+
+st.markdown("### NEX DE 強度データの定量計算")
 
 st.write(
     "ドリフト補正用試料（QC-2）の基準強度と測定強度に基づいて"
-    "ドリフト補正係数を求め、検量線法により定量値を算出します。"
-    "本プログラムでは、QC-2を複数回測定した場合、その測定回数と"
-    "同じ数の定量値を、1つの資料のXRF強度データから算出します。"
+    "ドリフト補正係数を求め、検量線法により定量値を算出します。 "
+    "QC-2を複数回測定した場合は、その測定回数と同じ数の定量値を、"
+    "1つの資料のXRF強度データから算出します。NEX DEから出力した"
+    "強度CSVファイルと、機関ごとの定量計算パラメーターExcelを"
+    "アップロードすると、定量値と中央値をExcelファイルとして"
+    "ダウンロードできます。"
 )
 
-st.info(
-    "出力Excelには次の3シートが作成されます。\n\n"
-    "- **定量値**：反復測定を残した全データ\n"
-    "- **Median**：sampleごとに各元素の中央値を集計\n"
-    "- **Median_日付別**：sampleと測定日ごとに各元素の中央値を集計"
+st.caption(
+    "出力Excel：反復測定を残した「定量値」、資料別の「Median」、"
+    "資料・測定日別の「Median_日付別」の3シート"
 )
 
 
@@ -69,13 +66,21 @@ def make_signature(csv_files, parameter_file):
     return digest.hexdigest()
 
 
-st.subheader("1．強度CSVファイル")
+st.header("1. Upload XRF Intensity CSV Files")
+
+st.write(
+    "NEX DEから出力した強度CSVファイルをアップロードしてください。"
+    "複数ファイルを同時に選択できます。"
+)
 
 csv_files = st.file_uploader(
-    "NEX DEから出力したCSVを選択してください（複数選択可）",
+    "強度CSVファイルを選択してください",
     type=["csv"],
     accept_multiple_files=True,
+    label_visibility="collapsed",
 )
+
+st.caption("CSV形式・複数ファイル選択可")
 
 if csv_files:
     st.write(f"選択されたCSV：{len(csv_files)}ファイル")
@@ -83,15 +88,23 @@ if csv_files:
         st.write(f"・{file.name}")
 
 
-st.subheader("2．定量計算パラメーター")
+st.header("2. Upload Quantification Parameters File")
+
+st.write(
+    "機関ごとの定量計算パラメーターExcelファイルを"
+    "アップロードしてください。"
+)
 
 parameter_file = st.file_uploader(
     "機関ごとの定量計算パラメーターExcelを選択してください",
     type=["xlsx", "xlsm"],
+    label_visibility="collapsed",
 )
 
+st.caption("「定量計算パラメーター」シートを含むExcelファイル")
 
-st.subheader("3．定量計算")
+
+st.header("3. Run Quantification")
 
 ready = bool(csv_files) and parameter_file is not None
 names = [file.name for file in csv_files]
