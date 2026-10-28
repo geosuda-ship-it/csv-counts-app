@@ -74,8 +74,6 @@ csv_files = st.file_uploader(
     key="intensity_csv",
 )
 
-st.caption("CSV形式・複数ファイル選択可")
-
 if csv_files:
     st.write(f"選択されたCSV：{len(csv_files)}ファイル")
     for file in csv_files:
