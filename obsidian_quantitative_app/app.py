@@ -82,13 +82,9 @@ if csv_files:
 
 st.subheader("2. Upload Quantification Parameters File")
 
-st.write(
-    "機関ごとの定量計算パラメーターExcelファイルを"
-    "アップロードしてください。"
-)
 
 parameter_file = st.file_uploader(
-    "機関ごとの定量計算パラメーターExcelを選択してください",
+    "機関ごとの定量計算パラメーターExcelをアップロードしてください。",
     type=["xlsx", "xlsm"],
     key="quantification_parameters",
 )
