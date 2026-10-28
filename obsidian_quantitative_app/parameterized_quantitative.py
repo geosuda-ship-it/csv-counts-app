@@ -3,10 +3,12 @@
 複数のCSVと共通の定量計算パラメーターExcelをアップロードする。
 各CSVの同日QCだけを用いてドリフト補正・定量計算を行う。
 出力Excelには、全測定結果を「定量値」シートへ保存する。
+sampleごとに各元素の中央値を「Median」シートへ保存する。
 さらにsampleと測定日（時刻を除く）が同じ行をまとめ、各元素の中央値を
-「定量値_日付別」シートへ保存する。
+「Median_日付別」シートへ保存する。
 資料IDの先頭のアポストロフィだけを除去する。
-「定量値」では反復測定をまとめず、「定量値_日付別」で中央値にまとめる。
+「定量値」では反復測定をまとめず、「Median」と「Median_日付別」で
+中央値にまとめる。
 出力名は入力CSVのファイル名を昇順に結合して自動決定する。
 例：20261014.csv、20261019.csv → 20261014_20261019_step1_定量値.xlsx
 """
@@ -538,12 +540,8 @@ def _format_table(sheet, datetime_columns=(), date_columns=(), numeric_columns=(
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
 
-def create_daily_median_sheet(book, original_sheet):
-    """sampleと測定日ごとに、各元素の中央値をまとめたシートを作る。"""
-    median_sheet = book.create_sheet("定量値_日付別")
-    headers = [cell.value for cell in original_sheet[1]]
-    _append_text_safe(median_sheet, headers)
-
+def _collect_median_groups(original_sheet, include_date):
+    """中央値計算用に、sampleまたはsample・測定日でデータをまとめる。"""
     groups = defaultdict(
         lambda: {
             "modes": set(),
@@ -553,33 +551,138 @@ def create_daily_median_sheet(book, original_sheet):
     for row in original_sheet.iter_rows(min_row=2, values_only=True):
         sample, mode, measured_at, *quantitative_values = row
         measurement_date = parse_datetime(measured_at).date()
-        group = groups[(sample, measurement_date)]
+        key = (sample, measurement_date) if include_date else sample
+        group = groups[key]
         group["modes"].add(mode)
         for element, value in zip(QUANT_ELEMENTS, quantitative_values):
             group["values"][element].append(value)
+    return groups
 
-    for sample, measurement_date in sorted(groups):
-        group = groups[(sample, measurement_date)]
-        modes = group["modes"]
-        mode_label = next(iter(modes)) if len(modes) == 1 else "複数モード"
-        _append_text_safe(
-            median_sheet,
-            [
-                sample,
-                mode_label,
-                measurement_date,
-                *[median(group["values"][element]) for element in QUANT_ELEMENTS],
-            ],
-        )
 
-    _format_table(
-        median_sheet,
-        date_columns=("C",),
-        centered=True,
-        numeric_columns=tuple(
-            (get_column_letter(i), "0.000") for i in range(4, 14)
-        ),
+def _prepare_median_sheet(sheet, include_date):
+    """Medianシートを指定された3段見出しの書式に整える。"""
+    element_start_column = 4 if include_date else 3
+    last_column = element_start_column + len(QUANT_ELEMENTS) - 1
+
+    for column in range(element_start_column, last_column + 1):
+        sheet.cell(1, column, "Median")
+        sheet.cell(2, column, "ppm")
+
+    sheet.cell(3, 2, "Sample")
+    if include_date:
+        sheet.cell(3, 3, "Date")
+    for offset, element in enumerate(QUANT_ELEMENTS):
+        sheet.cell(3, element_start_column + offset, element)
+
+    header_fill = PatternFill("solid", fgColor="376A9E")
+    header_font = Font(
+        name="游ゴシック",
+        size=11,
+        bold=True,
+        italic=True,
+        color="FFFFFF",
     )
+    for cell in sheet.iter_rows(
+        min_row=3,
+        max_row=3,
+        min_col=2,
+        max_col=last_column,
+    ):
+        for header_cell in cell:
+            header_cell.fill = header_fill
+            header_cell.font = header_font
+            header_cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+            )
+
+    for row in sheet.iter_rows(
+        min_row=1,
+        max_row=2,
+        min_col=element_start_column,
+        max_col=last_column,
+    ):
+        for cell in row:
+            cell.font = Font(name="游ゴシック", size=11, bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    sheet.column_dimensions["A"].width = 4
+    sheet.column_dimensions["B"].width = 20
+    if include_date:
+        sheet.column_dimensions["C"].width = 14
+    for column in range(element_start_column, last_column + 1):
+        sheet.column_dimensions[get_column_letter(column)].width = 14
+
+    sheet.row_dimensions[1].height = 22
+    sheet.row_dimensions[2].height = 22
+    sheet.row_dimensions[3].height = 24
+    sheet.freeze_panes = "B4"
+    sheet.auto_filter.ref = (
+        f"B3:{get_column_letter(last_column)}{max(sheet.max_row, 3)}"
+    )
+
+    return element_start_column, last_column
+
+
+def _format_median_data(sheet, include_date):
+    element_start_column, last_column = _prepare_median_sheet(
+        sheet,
+        include_date,
+    )
+    for row in sheet.iter_rows(
+        min_row=4,
+        max_row=sheet.max_row,
+        min_col=2,
+        max_col=last_column,
+    ):
+        for cell in row:
+            cell.font = Font(name="游ゴシック", size=11)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            if cell.column >= element_start_column:
+                cell.number_format = "0.0000"
+    if include_date:
+        for cell in sheet["C"][3:]:
+            cell.number_format = "yyyy-mm-dd"
+
+
+def create_median_sheet(book, original_sheet):
+    """sampleごとに各元素の中央値を画像指定の書式でまとめる。"""
+    median_sheet = book.create_sheet("Median")
+
+    groups = _collect_median_groups(original_sheet, include_date=False)
+    for row_number, sample in enumerate(sorted(groups), start=4):
+        group = groups[sample]
+        values = [
+            sample,
+            *[median(group["values"][element]) for element in QUANT_ELEMENTS],
+        ]
+        for column, value in enumerate(values, start=2):
+            cell = median_sheet.cell(row_number, column, value)
+            if isinstance(value, str):
+                cell.data_type = "s"
+    _format_median_data(median_sheet, include_date=False)
+    return median_sheet
+
+
+def create_daily_median_sheet(book, original_sheet):
+    """sampleと測定日ごとの中央値をまとめる。日付列は出力しない。"""
+    median_sheet = book.create_sheet("Median_日付別")
+
+    groups = _collect_median_groups(original_sheet, include_date=True)
+    for row_number, (sample, measurement_date) in enumerate(
+        sorted(groups),
+        start=4,
+    ):
+        group = groups[(sample, measurement_date)]
+        values = [
+            sample,
+            *[median(group["values"][element]) for element in QUANT_ELEMENTS],
+        ]
+        for column, value in enumerate(values, start=2):
+            cell = median_sheet.cell(row_number, column, value)
+            if isinstance(value, str):
+                cell.data_type = "s"
+    _format_median_data(median_sheet, include_date=False)
     return median_sheet
 
 def create_multi_quantitative_excel(csv_files, parameter_content, parameter_name=""):
@@ -635,14 +738,16 @@ def create_multi_quantitative_excel(csv_files, parameter_content, parameter_name
     _format_table(quant, datetime_columns=("C",), centered=True,
                   numeric_columns=tuple((get_column_letter(i), "0.000") for i in range(4, 14)))
 
-    median_sheet = create_daily_median_sheet(book, quant)
+    median_sheet = create_median_sheet(book, quant)
+    daily_median_sheet = create_daily_median_sheet(book, quant)
     book.active = book.sheetnames.index(median_sheet.title)
     output = io.BytesIO()
     book.save(output)
     book.close()
     return dict(content=output.getvalue(), file_count=len(batches),
                 output_row_count=sum(len(b["corrected"]) for b in batches),
-                median_row_count=median_sheet.max_row - 1,
+                median_row_count=max(median_sheet.max_row - 3, 0),
+                daily_median_row_count=max(daily_median_sheet.max_row - 3, 0),
                 warnings=warning_rows, batches=batches)
 
 def main():
@@ -680,8 +785,12 @@ def main():
     # 再実行時も常に同じ名前で出力する。Colab上の同名ファイルは上書きする。
     target = Path(output_name)
     target.write_bytes(result["content"])
-    print(f"④ 完了：{result['file_count']}ファイル・詳細{result['output_row_count']}行・"
-          f"中央値{result['median_row_count']}行")
+    print(
+        f"④ 完了：{result['file_count']}ファイル・"
+        f"定量値{result['output_row_count']}行・"
+        f"Median {result['median_row_count']}行・"
+        f"Median_日付別 {result['daily_median_row_count']}行"
+    )
     print("ダウンロード：", target.name)
     files.download(str(target))
 if __name__ == "__main__":
